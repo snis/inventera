@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Förbrukningsmaterial</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div class=background_wrapper></div>
+    <div class=card>
+    <h1>Inventera</h1>
+    <p>kontrollera vad som finns kvar, inklusive <b>oöppnade</b> förpackningar (öppnade räknas inte) som är utställda, i text sovrum, dusch.</p>
+
+    {% for category, items in items_by_category.items() %}
+
+        <h2>{{ category }}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Benämning</th>
+                    <th>Antal</th>
+                    <th>Check</th>
+                    <th>Update</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <form action="{{ url_for('update_quantity', item_id=item.id) }}" method="post">
+                        <td style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">{{ item.name }}</td>
+                        <td style="background-color: {{ get_row_color(item.last_checked) }}"><input type="hidden" name="item_id" value="{{ item.id }}">
+                        <input type="number" name="new_quantity" value="{{ item.quantity }}"> {{ item.unit }}</td>
+                        <td style="background-color: {{ get_row_color(item.last_checked) }}"><button class="apply" type="submit"></button></td>
+                        <td style="background-color: {{ get_row_color(item.last_checked) }}">{% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}</td>
+                        </form>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endfor %}
+    </div>
+</body>
+</html>

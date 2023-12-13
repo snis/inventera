@@ -1,0 +1,110 @@
+:root {
+  --basecolor: pink;
+}
+body {
+  background: radial-gradient(var(--basecolor), hotpink) no-repeat fixed;
+  font-size: 14px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+@media screen and (max-width: 580px) {
+  body {
+    font-size: 18px;
+    line-height: 32px;
+  }
+}
+.background_wrapper {
+background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHhtbG5zOnhsaW5rPSdodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rJyB3aWR0aD0nMTAwJyBoZWlnaHQ9JzcwJyB2aWV3Qm94PScwIDAgMjYuNDU4IDE4LjUyMSc+PGRlZnM+PGNsaXBQYXRoIGlkPSdnJz48cGF0aCBmaWxsPSd1cmwoI2EpJyBkPSdNLS4xNzctLjE3N2gyNi42MzV2MjYuNjM1SC0uMTc3eicgc3R5bGU9J3BhaW50LW9yZGVyOnN0cm9rZSBmaWxsIG1hcmtlcnMnLz48L2NsaXBQYXRoPjxjbGlwUGF0aCBpZD0nZSc+PHBhdGggZmlsbD0ndXJsKCNhKScgZD0nTS0uMTc3LS4xNzdoMjYuNjM1djI2LjYzNUgtLjE3N3onIHN0eWxlPSdwYWludC1vcmRlcjpzdHJva2UgZmlsbCBtYXJrZXJzJy8+PC9jbGlwUGF0aD48Y2xpcFBhdGggaWQ9J2QnPjxwYXRoIGZpbGw9J3VybCgjYSknIGQ9J00tLjE3Ny0uMTc3aDI2LjYzNXYyNi42MzVILS4xNzd6JyBzdHlsZT0ncGFpbnQtb3JkZXI6c3Ryb2tlIGZpbGwgbWFya2VycycvPjwvY2xpcFBhdGg+PGNsaXBQYXRoIGlkPSdjJz48cGF0aCBmaWxsPSd1cmwoI2EpJyBkPSdNLS4xNzctLjE3N2gyNi42MzV2MjYuNjM1SC0uMTc3eicgc3R5bGU9J3BhaW50LW9yZGVyOnN0cm9rZSBmaWxsIG1hcmtlcnMnLz48L2NsaXBQYXRoPjxsaW5lYXJHcmFkaWVudCBpZD0nYic+PHN0b3Agb2Zmc2V0PScwJyBzdG9wLWNvbG9yPScjZGMzNTQ1Jy8+PHN0b3Agb2Zmc2V0PScxJyBzdG9wLWNvbG9yPScjMDUyODViJy8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9J2YnIHgxPSczOS40MjMnIHgyPSc0Ny4wODcnIHkxPSc5My45MjcnIHkyPScxMDMuNDMnIGdyYWRpZW50VHJhbnNmb3JtPSd0cmFuc2xhdGUoLTEwLjI4IC00Ny4wMTcpIHNjYWxlKC42OTQyNSknIGdyYWRpZW50VW5pdHM9J3VzZXJTcGFjZU9uVXNlJz48c3RvcCBvZmZzZXQ9JzAnLz48c3RvcCBvZmZzZXQ9JzEnLz48L2xpbmVhckdyYWRpZW50PjxyYWRpYWxHcmFkaWVudCB4bGluazpocmVmPScjYicgaWQ9J2EnIGN4PSczNy4wNDInIGN5PSc4OS45NTgnIHI9JzE1Ljg3NScgZ3JhZGllbnRUcmFuc2Zvcm09J3RyYW5zbGF0ZSgtMTcuOTMzIC02Mi4zMjUpIHNjYWxlKC44Mzg4OCknIGdyYWRpZW50VW5pdHM9J3VzZXJTcGFjZU9uVXNlJy8+PC9kZWZzPjxnIHN0cm9rZS1kYXNob2Zmc2V0PSc3LjU1OScgc3Ryb2tlLWxpbmVjYXA9J3JvdW5kJyBzdHJva2UtbGluZWpvaW49J3JvdW5kJyBzdHJva2UtbWl0ZXJsaW1pdD0nMCc+PHBhdGggZD0nTTI2LjQ1OCA0LjQxNXYyMi4wNDJINC40MTZjLjkxOC0xMS4wMiAxOC4zNjgtMTMuNzc2IDIyLjA0Mi0yMi4wNDJ6JyBjbGlwLXBhdGg9J3VybCgjYyknIG9wYWNpdHk9Jy4yNScgc3R5bGU9J21peC1ibGVuZC1tb2RlOm5vcm1hbDtwYWludC1vcmRlcjpzdHJva2UgZmlsbCBtYXJrZXJzJyB0cmFuc2Zvcm09J21hdHJpeCgxIDAgMCAuNzkyMjEgMCAtMi40NCknLz48cGF0aCBkPSdNMjYuNDU4IDUuMzM0djIxLjEyNEg0LjQxNmMxLjIyOS02LjI4MyAxNy43Ny0xMC4wNCAyMi4wNDItMjEuMTI0eicgY2xpcC1wYXRoPSd1cmwoI2QpJyBvcGFjaXR5PScuMjUnIHN0eWxlPSdtaXgtYmxlbmQtbW9kZTpkYXJrZW47cGFpbnQtb3JkZXI6c3Ryb2tlIGZpbGwgbWFya2VycycgdHJhbnNmb3JtPSdtYXRyaXgoMSAwIDAgLjgyNjY2IDAgLTMuMzUpJy8+PHBhdGggZD0nTTI2LjQ1OCA2LjI1M3YyMC4yMDVINC40MTZjLjI2LTIuNjA1IDE5Ljk2My02LjI0NSAyMi4wNDItMjAuMjA1eicgY2xpcC1wYXRoPSd1cmwoI2UpJyBvcGFjaXR5PScuMjUnIHN0eWxlPSdtaXgtYmxlbmQtbW9kZTpkYXJrZW47cGFpbnQtb3JkZXI6c3Ryb2tlIGZpbGwgbWFya2VycycgdHJhbnNmb3JtPSdtYXRyaXgoMSAwIDAgLjg2NDI0IDAgLTQuMzQ1KScvPjwvZz48cGF0aCBmaWxsPSd1cmwoI2YpJyBkPSdNMjYuNDU4IDcuMTd2MTkuMjg4SDQuNDE2YzEuMzgtMy40ODUgMjAuMTgzIDEuMTEgMjIuMDQyLTE5LjI4NnonIGNsaXAtcGF0aD0ndXJsKCNnKScgb3BhY2l0eT0nLjI1JyBzdHlsZT0nbWl4LWJsZW5kLW1vZGU6ZGFya2VuO3BhaW50LW9yZGVyOnN0cm9rZSBmaWxsIG1hcmtlcnMnIHRyYW5zZm9ybT0nbWF0cml4KDEgMCAwIC45MDUzOSAwIC01LjQzNCknLz48L3N2Zz4="); no-repeat;
+padding:0px;
+position: fixed;
+background-size: cover;
+left: 0px;
+top: 0px;
+height: 100%;
+width: 100%;
+z-index: -1;
+}
+.card{
+  position: relative;
+  display: table;
+
+  justify-content: center;
+  align-items: center;
+  border-top: 10px solid var(--basecolor);
+  border-left: 1px solid var(--basecolor);
+  padding:  5px 10px 20px 10px;
+  border-radius:15px;
+  backdrop-filter:blur(5px) ;
+  background:rgba(255,255, 255, 0.4);
+  overflow: hidden;
+  box-shadow:20px 20px 50px rgba(0, 0, 0, 0.5);
+  margin: 0px auto auto auto;
+}
+h1, h2, h3 {
+    text-transform: capitalize; /* Gör första bokstaven stor */
+    line-height: 1;
+    font-size: 110%;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+thead {
+    font-size: 105%;
+}
+tr {
+    background: #ffffff50;
+}
+tr:nth-child(even) {
+    background: #55555550;
+}
+td {
+    padding: 1px 1px 1px 4px;
+    vertical-align: middle;
+}
+td input {
+    font-size: calc(13px + 0.390625vw);
+    background: #ffffff99;
+    border-radius: 5px;
+    border: 1px solid #aaa;
+    padding: 0 0 0 10px;
+    outline: none;
+    margin: auto;
+}
+@media screen and (max-width: 580px) {
+  td input {
+    font-size: 18px;
+    line-height: 32px;
+  }
+}
+td input[type="number"] {
+    width: 40px;
+
+}
+button {
+    width: calc(26px + 0.390625vw);
+    height: calc(26px + 0.390625vw);
+    background-size: calc(24px + 0.390625vw);
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: white;
+    outline: none;
+    cursor: pointer;
+    text-align: right;
+}
+button.apply {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z' /%3E%3C/svg%3E");
+    background-color: yellowgreen;
+}
+button.add-item {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z' /%3E%3C/svg%3E");
+    background-color: yellowgreen;
+}
+button.remove-item {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M17,7H14.5L13.5,6H10.5L9.5,7H7V9H17V7M9,18H15A1,1 0 0,0 16,17V10H8V17A1,1 0 0,0 9,18Z' /%3E%3C/svg%3E");
+    background-color: orangered;
+}
+button:hover {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z' fill='%23227722'/%3E%3C/svg%3E%0A");
+}
