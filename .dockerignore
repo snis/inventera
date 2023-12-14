@@ -6,5 +6,5 @@ venv
 instance/
 db.sqlite3
 screenshots
-README.md
 .gitignore
+.git
