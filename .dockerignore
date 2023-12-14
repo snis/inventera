@@ -6,3 +6,8 @@ venv
 instance/
 db.sqlite3
 screenshots
+README.md
+requirements.txt
+.gitignore
+.dockerignore
+Dockerfile
