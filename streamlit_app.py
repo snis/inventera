@@ -1,7 +1,6 @@
 import streamlit as st
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 
 # Databasinställningar
@@ -66,6 +65,8 @@ if choice == 'Home':
         for item in items:
             st.write(f"**{item.name}**: {item.quantity} {item.unit}")
             st.write(f"Last checked: {item.last_checked}")
+            st.write(f"Row color: {get_row_color(item.last_checked)}")
+            st.write(f"Warning color: {get_warning_color(item.quantity, item.alert_quantity)}")
 
 elif choice == 'Inventory':
     st.subheader('Inventory')
