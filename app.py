@@ -130,13 +130,20 @@ def update_quantity():
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             row_color = get_row_color(item.last_checked)
             warning_color = get_warning_color(item.quantity, item.alert_quantity)
+            
+            # Beräkna tid sedan uppdatering för att bestämma knappfärg
+            hours_since = 0  # Nyligen uppdaterad
+            days_since = 0
+            button_class = ""  # Standard grön
+            
             return jsonify({
                 'status': 'success',
                 'item_id': item_id,
                 'new_quantity': new_quantity,
                 'last_checked': item.last_checked.strftime('%d/%m'),
                 'row_color': row_color,
-                'warning_color': warning_color
+                'warning_color': warning_color,
+                'button_class': button_class  # Alltid tom eftersom det är nyligen uppdaterat
             })
 
         # If regular form submit, redirect to index
