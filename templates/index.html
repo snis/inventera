@@ -35,8 +35,8 @@
                 {% for item in items %}
                     <tr id="item-row-{{ item.id }}">
                         <form action="{{ url_for('update_quantity', item_id=item.id) }}" method="post" class="update-form">
-                        <td id="item-name-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">{{ item.name }}</td>
-                        <td id="item-quantity-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}"><input type="hidden" name="item_id" value="{{ item.id }}">
+                        <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">{{ item.name }}</td>
+                        <td id="item-quantity-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})"><input type="hidden" name="item_id" value="{{ item.id }}">
                         <input type="number" name="new_quantity" value="{{ item.quantity }}"> {{ item.unit }}</td>
                         <td style="background-color: {{ get_row_color(item.last_checked) }}"><button class="apply" type="submit"></button></td>
                         <td id="item-updated-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">{% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}</td>
@@ -98,12 +98,12 @@
                             $('#item-updated-' + response.item_id).text(response.last_checked);
                             
                             // Uppdatera bakgrundsfärger
-                            $('#item-name-' + response.item_id).css('background-image', 
+                            $('#item-name-' + response.item_id).css('background-color', response.warning_color);
+                            $('#item-quantity-' + response.item_id).css('background-image', 
                                 'linear-gradient(to right, ' + response.warning_color + ', ' + response.row_color + ')');
                             
-                            // Uppdatera alla celler i raden
-                            const cells = form.closest('tr').find('td');
-                            cells.css('background-color', response.row_color);
+                            // Uppdatera resterande celler i raden med row_color
+                            form.closest('tr').find('td:gt(1)').css('background-color', response.row_color);
                             
                             // Tillfällig visuell feedback att uppdateringen lyckades
                             form.closest('tr').addClass('success-feedback');
