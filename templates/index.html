@@ -10,10 +10,14 @@
 </head>
 <body>
     <div class=background_wrapper></div>
-    <div class=card>
+    <div class="card">
     <h1>Inventera</h1>
-    <p>kontrollera vad som finns kvar, inklusive <b>oöppnade</b> förpackningar (öppnade räknas inte) som är utställda, i text sovrum, dusch.</p>
-    <p><a href=https://ha.snis.nu/ass-ds/0>Kalender m.m</a></p>
+    <div class="navigation">
+        <a href="{{ url_for('index') }}" class="active">Inventera</a>
+        <a href="{{ url_for('inventory') }}">Hantera artiklar</a>
+        <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
+    </div>
+    <p>Kontrollera vad som finns kvar, inklusive <b>oöppnade</b> förpackningar (öppnade räknas inte) som är utställda, i text sovrum, dusch.</p>
 
     {% for category, items in items_by_category.items() %}
 
@@ -102,11 +106,7 @@
                             cells.css('background-color', response.row_color);
                             
                             // Tillfällig visuell feedback att uppdateringen lyckades
-                            form.closest('tr').css('transition', 'background-color 0.3s');
-                            form.closest('tr').css('background-color', '#adff2f50');
-                            setTimeout(function() {
-                                form.closest('tr').css('background-color', '');
-                            }, 500);
+                            form.closest('tr').addClass('success-feedback');
                         } else if (response.status === 'error') {
                             // Visa felmeddelande
                             alert(response.message || 'Ett fel uppstod vid uppdatering.');

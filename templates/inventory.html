@@ -9,9 +9,13 @@
 </head>
 <body>
     <div class=background_wrapper></div>
-    <div class=card>
-    <h1>Förbrukningsmaterial</h1>
-    <p><a href="{{ url_for('index') }}">Tillbaka till inventering</a></p>
+    <div class="card">
+    <h1>Hantera artiklar</h1>
+    <div class="navigation">
+        <a href="{{ url_for('index') }}">Inventera</a>
+        <a href="{{ url_for('inventory') }}" class="active">Hantera artiklar</a>
+        <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
+    </div>
 
     <form id="inventory-form" action="{{ url_for('update_items') }}" method="post">
         <table>
@@ -117,11 +121,7 @@
                                 'linear-gradient(to right, ' + response.warning_color + ', ' + response.row_color + ')');
                             
                             // Visuell feedback
-                            row.css('transition', 'background-color 0.3s');
-                            row.css('background-color', '#adff2f50');
-                            setTimeout(function() {
-                                row.css('background-color', '');
-                            }, 500);
+                            row.addClass('success-feedback');
                         } else if (response.status === 'error') {
                             alert(response.message || 'Ett fel uppstod vid uppdatering.');
                         }
