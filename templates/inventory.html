@@ -18,16 +18,16 @@
     </div>
 
     <form id="inventory-form" action="{{ url_for('update_items') }}" method="post">
-        <table>
+        <table class="mobile-table-layout inventory-table">
             <thead>
                 <tr>
-                    <th>Benämning</th>
+                    <th>Namn</th>
                     <th>Antal</th>
-                    <th>Larm nivå</th>
+                    <th>Larm</th>
                     <th>Enhet</th>
                     <th>Kategori</th>
-                    <th>Uppdaterad</th>
-                    <th>Hantering</th>
+                    <th>Datum</th>
+                    <th>Åtgärd</th>
                 </tr>
             </thead>
             <tbody>
