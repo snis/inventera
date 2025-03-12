@@ -5,6 +5,7 @@
   --text-color: #333;
   --button-success: #7CB342;
   --button-delete: #F44336;
+  --warning-color: #FF9800;
   --success-light: #DCEDC8;
   --warning-light: #FFCCBC;
   --card-bg: rgba(255, 255, 255, 0.65);
@@ -198,6 +199,17 @@ button:active {
 button.apply {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.5 2 2 6.5 2 12S6.5 22 12 22 22 17.5 22 12 17.5 2 12 2M10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z' fill='white'/%3E%3C/svg%3E");
   background-color: var(--button-success);
+  width: 45px;
+  border-radius: 6px;
+}
+
+/* Färgkodning för checkknappen baserat på uppdateringstid */
+button.apply.warning {
+  background-color: var(--warning-color, #ff9800);
+}
+
+button.apply.danger {
+  background-color: var(--button-delete, #F44336);
 }
 
 button.add-item {

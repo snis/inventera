@@ -89,7 +89,8 @@ def index():
         'index.html',
         items_by_category=items_by_category,
         get_row_color=get_row_color,
-        get_warning_color=get_warning_color
+        get_warning_color=get_warning_color,
+        now=datetime.now()
     )
 
 
