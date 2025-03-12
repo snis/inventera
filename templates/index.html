@@ -46,12 +46,37 @@
 
     <script>
         $(document).ready(function() {
+            // Skapa en debounced-version av updateItem-funktionen
+            function debounce(func, wait) {
+                let timeout;
+                return function() {
+                    const context = this;
+                    const args = arguments;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(function() {
+                        func.apply(context, args);
+                    }, wait);
+                };
+            }
+            
+            // Hantera formulärinlämning med AJAX
             $('.update-form').submit(function(e) {
                 e.preventDefault();
-                var form = $(this);
-                var url = form.attr('action');
-                var itemId = form.find('input[name="item_id"]').val();
-                var newQuantity = form.find('input[name="new_quantity"]').val();
+                updateItem($(this));
+            });
+            
+            // Uppdatera när man ändrar i antal-fältet och trycker Tab eller klickar utanför
+            $('.update-form input[name="new_quantity"]').on('change', debounce(function() {
+                $(this).closest('form').submit();
+            }, 300));
+            
+            // Funktion för att uppdatera artikel
+            function updateItem(form) {
+                const url = form.attr('action');
+                const itemId = form.find('input[name="item_id"]').val();
+                
+                // Visa laddningsindikator
+                form.find('button.apply').css('opacity', '0.5');
                 
                 $.ajax({
                     type: "POST",
@@ -61,23 +86,39 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
+                        // Återställ knappens utseende
+                        form.find('button.apply').css('opacity', '1');
+                        
                         if (response.status === 'success') {
-                            // Update the row with new values
+                            // Uppdatera raden med nya värden
                             $('#item-updated-' + response.item_id).text(response.last_checked);
                             
-                            // Update background colors
+                            // Uppdatera bakgrundsfärger
                             $('#item-name-' + response.item_id).css('background-image', 
                                 'linear-gradient(to right, ' + response.warning_color + ', ' + response.row_color + ')');
-                            $('#item-quantity-' + response.item_id).css('background-color', response.row_color);
-                            $('#item-updated-' + response.item_id).css('background-color', response.row_color);
-                            $(form).find('td').css('background-color', response.row_color);
+                            
+                            // Uppdatera alla celler i raden
+                            const cells = form.closest('tr').find('td');
+                            cells.css('background-color', response.row_color);
+                            
+                            // Tillfällig visuell feedback att uppdateringen lyckades
+                            form.closest('tr').css('transition', 'background-color 0.3s');
+                            form.closest('tr').css('background-color', '#adff2f50');
+                            setTimeout(function() {
+                                form.closest('tr').css('background-color', '');
+                            }, 500);
+                        } else if (response.status === 'error') {
+                            // Visa felmeddelande
+                            alert(response.message || 'Ett fel uppstod vid uppdatering.');
                         }
                     },
                     error: function(error) {
+                        form.find('button.apply').css('opacity', '1');
                         console.error("Error updating item:", error);
+                        alert('Ett fel uppstod vid uppdatering. Försök igen.');
                     }
                 });
-            });
+            }
         });
     </script>
 </body>
