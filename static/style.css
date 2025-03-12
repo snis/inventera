@@ -45,21 +45,18 @@ z-index: -1;
 }
 .card {
   position: relative;
-  display: table;
   max-width: 1200px;
   width: 95%;
-  justify-content: center;
-  align-items: center;
   border-top: 6px solid var(--dark-accent);
   border-left: 1px solid var(--basecolor);
   padding: 12px 20px 25px;
   border-radius: 15px;
   backdrop-filter: blur(8px);
   background: var(--card-bg);
-  overflow: hidden;
   box-shadow: 0 10px 30px var(--shadow-color);
   margin: 20px auto;
   transition: all 0.3s ease;
+  overflow-x: hidden;
 }
 
 h1, h2, h3 {
@@ -104,6 +101,7 @@ table {
   box-shadow: 0 2px 8px var(--shadow-color);
   border-radius: 8px;
   overflow: hidden;
+  table-layout: fixed;
 }
 
 thead {
@@ -262,26 +260,146 @@ button:hover {
   color: white;
 }
 
+/* Mobile Specific Table Layout */
+.mobile-table-layout th:nth-child(1),
+.mobile-table-layout td:nth-child(1) {
+  width: 45%;
+}
+
+.mobile-table-layout th:nth-child(2),
+.mobile-table-layout td:nth-child(2) {
+  width: 25%;
+}
+
+.mobile-table-layout th:nth-child(3),
+.mobile-table-layout td:nth-child(3),
+.mobile-table-layout th:nth-child(4),
+.mobile-table-layout td:nth-child(4) {
+  width: 15%;
+}
+
+/* Inventory table layout */
+.inventory-table th,
+.inventory-table td {
+  font-size: 0.95em;
+}
+
+@media screen and (max-width: 768px) {
+  .inventory-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .inventory-table th,
+  .inventory-table td {
+    min-width: 70px;
+    white-space: nowrap;
+  }
+}
+
 /* Responsive adjustments */
 @media screen and (max-width: 768px) {
   .card {
     width: 98%;
     padding: 10px 12px 20px;
+    margin: 10px auto;
   }
   
   .navigation {
     justify-content: center;
   }
   
+  h1 {
+    font-size: 1.5em;
+  }
+  
+  h2 {
+    font-size: 1.2em;
+  }
+  
   table {
     font-size: 0.9em;
+    margin: 0.5em 0 1.5em 0;
+    table-layout: fixed;
+    width: 100%;
   }
   
   thead th {
     padding: 8px 5px;
+    font-size: 0.9em;
+    font-weight: 500;
   }
   
   td {
+    padding: 8px 5px;
+    word-break: break-word;
+  }
+  
+  td input[type="number"] {
+    width: 40px;
+    padding: 5px;
+  }
+  
+  td input {
     padding: 6px 5px;
+    font-size: 0.9em;
+    max-width: 120px;
+  }
+  
+  button {
+    width: 32px;
+    height: 32px;
+    margin: 0 1px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .card {
+    width: 95%;
+    padding: 10px 10px 15px;
+    border-radius: 10px;
+  }
+  
+  .navigation {
+    gap: 5px;
+  }
+  
+  .navigation a {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+  
+  table {
+    font-size: 0.85em;
+  }
+  
+  th:first-child, td:first-child {
+    max-width: 120px;
+  }
+  
+  thead th {
+    padding: 6px 3px;
+    font-size: 0.85em;
+  }
+  
+  td {
+    padding: 6px 2px;
+  }
+  
+  td input {
+    padding: 4px;
+    font-size: 0.9em;
+  }
+  
+  td input[type="number"] {
+    width: 35px;
+    padding: 4px 2px;
+  }
+  
+  button {
+    width: 28px;
+    height: 28px;
   }
 }
