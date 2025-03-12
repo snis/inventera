@@ -27,7 +27,7 @@
                 <tr>
                     <th>Benämning</th>
                     <th>Antal</th>
-                    <th>Check</th>
+                    <th>Uppdatera</th>
                     <th>Datum</th>
                 </tr>
             </thead>
@@ -38,7 +38,7 @@
                         <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">{{ item.name }}</td>
                         <td id="item-quantity-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})"><input type="hidden" name="item_id" value="{{ item.id }}">
                         <input type="number" name="new_quantity" value="{{ item.quantity }}"> {{ item.unit }}</td>
-                        <td style="background-color: {{ get_row_color(item.last_checked) }}">
+                        <td id="item-button-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
                             {% if item.last_checked %}
                                 {% set hours_since = ((now - item.last_checked).total_seconds() / 3600)|int %}
                                 {% if (now - item.last_checked).days > 6 %}
@@ -118,9 +118,18 @@
                             // Uppdatera resterande celler i raden med row_color
                             form.closest('tr').find('td:gt(1)').css('background-color', response.row_color);
                             
-                            // Återställ knappens klasser till standard (grön)
+                            // Uppdatera knappklassen baserat på svaret från servern
                             const submitButton = form.find('button.apply');
                             submitButton.removeClass('warning danger');
+                            
+                            // Helt ersätt HTML i knapp-cellen med färsk knapp (alltid grön efter uppdatering)
+                            $('#item-button-' + response.item_id).html('<button class="apply" type="submit"></button>');
+                            
+                            // Återkoppla händelsehanterare till den nya knappen
+                            $('#item-button-' + response.item_id + ' button').on('click', function(e) {
+                                e.preventDefault();
+                                updateItem($(this).closest('form'));
+                            });
                             
                             // Tillfällig visuell feedback att uppdateringen lyckades
                             form.closest('tr').addClass('success-feedback');
