@@ -5,54 +5,238 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Uppdatera databas</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class=background_wrapper></div>
-    <div class=card>
-    <h1>Förbrukningsmaterial</h1>
+    <div class="card">
+    <h1>Hantera artiklar</h1>
+    <div class="navigation">
+        <a href="{{ url_for('index') }}">Inventera</a>
+        <a href="{{ url_for('inventory') }}" class="active">Hantera artiklar</a>
+        <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
+    </div>
 
-    <form action="{{ url_for('update_items') }}" method="post">
-        <table>
+    <form id="inventory-form" action="{{ url_for('update_items') }}" method="post">
+        <table class="mobile-table-layout inventory-table">
+            <colgroup>
+                <col class="col-name">
+                <col class="col-quantity">
+                <col class="col-alert">
+                <col class="col-unit">
+                <col class="col-category">
+                <col class="col-date">
+                <col class="col-actions">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Benämning</th>
+                    <th>Namn</th>
                     <th>Antal</th>
-                    <th>Larm nivå</th>
+                    <th>Larm</th>
                     <th>Enhet</th>
                     <th>Kategori</th>
-                    <th>Uppdaterad</th>
-                    <th>Hantering</th>
+                    <th>Datum</th>
+                    <th>Åtgärd</th>
                 </tr>
             </thead>
             <tbody>
                 {% for category, items in items_by_category.items()|sort %}
                     {% for item in items|sort(attribute='name') %}
-                        <tr>
-                            <td style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}"><input type="text" name="name_{{ item.id }}" value="{{ item.name }}"></td>
-                            <td style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}"><input type="number" name="quantity_{{ item.id }}" value="{{ item.quantity }}"></td>
-                            <td style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}"><input type="number" name="alert_quantity_{{ item.id }}" value="{{ item.alert_quantity }}"></td>
-                            <td style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})"><input type="text" name="unit_{{ item.id }}" value="{{ item.unit }}"></td>
-                            <td style="background-color: {{ get_row_color(item.last_checked) }}"><input type="text" name="category_{{ item.id }}" value="{{ category }}"></td>
-                            <td style="background-color: {{ get_row_color(item.last_checked) }}">{% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}</td>
+                        <tr id="item-row-{{ item.id }}">
+                            <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
+                                <input type="text" name="name_{{ item.id }}" value="{{ item.name }}" class="input-name">
+                            </td>
+                            <td id="item-quantity-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
+                                <input type="number" name="quantity_{{ item.id }}" value="{{ item.quantity }}" class="input-number">
+                            </td>
+                            <td id="item-alert-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
+                                <input type="number" name="alert_quantity_{{ item.id }}" value="{{ item.alert_quantity }}" class="input-number">
+                            </td>
+                            <td id="item-unit-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">
+                                <input type="text" name="unit_{{ item.id }}" value="{{ item.unit }}" class="input-unit">
+                            </td>
+                            <td id="item-category-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
+                                <input type="text" name="category_{{ item.id }}" value="{{ category }}" class="input-category">
+                            </td>
+                            <td id="item-updated-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
+                                {% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}
+                            </td>
                             <td style="background-color: {{ get_row_color(item.last_checked) }}">
-                                <button class="apply" type="submit" name="update_item" value="{{ item.id }}"></button>
-                                <button class="remove-item" formaction="{{ url_for('remove_item', item_id=item.id) }}" type="submit" name="remove_item" value="{{ item.id }}"></button>
+                                <button class="apply item-update-btn" type="button" data-item-id="{{ item.id }}"></button>
+                                <button class="remove-item item-remove-btn" type="button" data-item-id="{{ item.id }}"></button>
                             </td>
                         </tr>
                     {% endfor %}
                 {% endfor %}
                 <!-- Add a row with empty cells and an "Add Item" button -->
-                <tr>
-                    <td><input type="text" name="new_name"></td>
-                    <td><input type="number" name="new_quantity"></td>
-                    <td><input type="number" name="new_alert_quantity"></td>
-                    <td><input type="text" name="new_unit"></td>
-                    <td><input type="text" name="new_category"></td>
+                <tr id="add-item-row">
+                    <td><input type="text" id="new_name" name="new_name" class="input-name"></td>
+                    <td><input type="number" id="new_quantity" name="new_quantity" value="0" class="input-number"></td>
+                    <td><input type="number" id="new_alert_quantity" name="new_alert_quantity" value="0" class="input-number"></td>
+                    <td><input type="text" id="new_unit" name="new_unit" class="input-unit"></td>
+                    <td><input type="text" id="new_category" name="new_category" class="input-category"></td>
                     <td></td>
-                    <td><button class="add-item" type="submit" name="add_item"></button></td>
+                    <td><button class="add-item" id="add-item-btn" type="button"></button></td>
                 </tr>
             </tbody>
         </table>
-    </form></div>
+    </form>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Uppdatera artikel via AJAX
+            $('.item-update-btn').click(function() {
+                const itemId = $(this).data('item-id');
+                const formData = new FormData();
+                
+                // Hämta data för denna artikel
+                formData.append('update_item', itemId);
+                formData.append(`name_${itemId}`, $(`input[name="name_${itemId}"]`).val());
+                formData.append(`quantity_${itemId}`, $(`input[name="quantity_${itemId}"]`).val());
+                formData.append(`alert_quantity_${itemId}`, $(`input[name="alert_quantity_${itemId}"]`).val());
+                formData.append(`unit_${itemId}`, $(`input[name="unit_${itemId}"]`).val());
+                formData.append(`category_${itemId}`, $(`input[name="category_${itemId}"]`).val());
+                
+                // Visa laddningsindikator
+                $(this).css('opacity', '0.5');
+                
+                $.ajax({
+                    type: 'POST',
+                    url: "{{ url_for('update_items') }}",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        const btn = $(`.item-update-btn[data-item-id="${itemId}"]`);
+                        btn.css('opacity', '1');
+                        
+                        if (response.status === 'success') {
+                            // Uppdatera gränssnittet
+                            $('#item-updated-' + itemId).text(response.item.last_checked);
+                            
+                            // Uppdatera bakgrundsfärger
+                            const row = $('#item-row-' + itemId);
+                            row.find('td').css('background-color', response.row_color);
+                            
+                            // Sätt warning_color för relevanta celler
+                            $('#item-name-' + itemId).css('background-color', response.warning_color);
+                            $('#item-quantity-' + itemId).css('background-color', response.warning_color);
+                            $('#item-alert-' + itemId).css('background-color', response.warning_color);
+                            $('#item-unit-' + itemId).css('background-image', 
+                                'linear-gradient(to right, ' + response.warning_color + ', ' + response.row_color + ')');
+                            
+                            // Visuell feedback
+                            row.addClass('success-feedback');
+                        } else if (response.status === 'error') {
+                            alert(response.message || 'Ett fel uppstod vid uppdatering.');
+                        }
+                    },
+                    error: function(error) {
+                        $(`.item-update-btn[data-item-id="${itemId}"]`).css('opacity', '1');
+                        console.error("Error updating item:", error);
+                        alert('Ett fel uppstod. Försök igen.');
+                    }
+                });
+            });
+            
+            // Ta bort artikel via AJAX
+            $('.item-remove-btn').click(function() {
+                if (!confirm('Är du säker på att du vill ta bort denna artikel?')) {
+                    return;
+                }
+                
+                const itemId = $(this).data('item-id');
+                const btn = $(this);
+                
+                // Visa laddningsindikator
+                btn.css('opacity', '0.5');
+                
+                $.ajax({
+                    type: 'POST',
+                    url: "/remove_item/" + itemId,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        btn.css('opacity', '1');
+                        
+                        if (response.status === 'success') {
+                            // Animera ut raden och ta bort den
+                            $('#item-row-' + itemId).fadeOut(300, function() {
+                                $(this).remove();
+                            });
+                        } else if (response.status === 'error') {
+                            alert(response.message || 'Kunde inte ta bort artikel.');
+                        }
+                    },
+                    error: function(error) {
+                        btn.css('opacity', '1');
+                        console.error("Error removing item:", error);
+                        alert('Ett fel uppstod. Försök igen.');
+                    }
+                });
+            });
+            
+            // Lägg till ny artikel via AJAX
+            $('#add-item-btn').click(function() {
+                const btn = $(this);
+                const formData = new FormData();
+                
+                // Hämta data för ny artikel
+                formData.append('add_item', 'true');
+                formData.append('new_name', $('#new_name').val());
+                formData.append('new_quantity', $('#new_quantity').val());
+                formData.append('new_alert_quantity', $('#new_alert_quantity').val());
+                formData.append('new_unit', $('#new_unit').val());
+                formData.append('new_category', $('#new_category').val());
+                
+                // Validera formuläret
+                if (!$('#new_name').val() || !$('#new_unit').val() || !$('#new_category').val()) {
+                    alert('Namn, enhet och kategori måste anges.');
+                    return;
+                }
+                
+                // Visa laddningsindikator
+                btn.css('opacity', '0.5');
+                
+                $.ajax({
+                    type: 'POST',
+                    url: "{{ url_for('update_items') }}",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        btn.css('opacity', '1');
+                        
+                        if (response.status === 'success') {
+                            // Rensa formuläret och ladda om sidan för att se nya artikeln
+                            $('#new_name').val('');
+                            $('#new_quantity').val('0');
+                            $('#new_alert_quantity').val('0');
+                            $('#new_unit').val('');
+                            $('#new_category').val('');
+                            
+                            alert('Artikel tillagd! Sidan kommer att laddas om.');
+                            location.reload();
+                        } else if (response.status === 'error') {
+                            alert(response.message || 'Kunde inte lägga till artikel.');
+                        }
+                    },
+                    error: function(error) {
+                        btn.css('opacity', '1');
+                        console.error("Error adding item:", error);
+                        alert('Ett fel uppstod. Försök igen.');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
