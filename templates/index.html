@@ -6,6 +6,7 @@
     <title>Förbrukningsmaterial</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class=background_wrapper></div>
@@ -28,13 +29,13 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                    <tr>
-                        <form action="{{ url_for('update_quantity', item_id=item.id) }}" method="post">
-                        <td style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">{{ item.name }}</td>
-                        <td style="background-color: {{ get_row_color(item.last_checked) }}"><input type="hidden" name="item_id" value="{{ item.id }}">
+                    <tr id="item-row-{{ item.id }}">
+                        <form action="{{ url_for('update_quantity', item_id=item.id) }}" method="post" class="update-form">
+                        <td id="item-name-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">{{ item.name }}</td>
+                        <td id="item-quantity-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}"><input type="hidden" name="item_id" value="{{ item.id }}">
                         <input type="number" name="new_quantity" value="{{ item.quantity }}"> {{ item.unit }}</td>
                         <td style="background-color: {{ get_row_color(item.last_checked) }}"><button class="apply" type="submit"></button></td>
-                        <td style="background-color: {{ get_row_color(item.last_checked) }}">{% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}</td>
+                        <td id="item-updated-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">{% if item.last_checked %}{{ item.last_checked.strftime('%d/%m') }}{% endif %}</td>
                         </form>
                     </tr>
                 {% endfor %}
@@ -42,5 +43,42 @@
         </table>
     {% endfor %}
     </div>
+
+    <script>
+        $(document).ready(function() {
+            $('.update-form').submit(function(e) {
+                e.preventDefault();
+                var form = $(this);
+                var url = form.attr('action');
+                var itemId = form.find('input[name="item_id"]').val();
+                var newQuantity = form.find('input[name="new_quantity"]').val();
+                
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: form.serialize(),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            // Update the row with new values
+                            $('#item-updated-' + response.item_id).text(response.last_checked);
+                            
+                            // Update background colors
+                            $('#item-name-' + response.item_id).css('background-image', 
+                                'linear-gradient(to right, ' + response.warning_color + ', ' + response.row_color + ')');
+                            $('#item-quantity-' + response.item_id).css('background-color', response.row_color);
+                            $('#item-updated-' + response.item_id).css('background-color', response.row_color);
+                            $(form).find('td').css('background-color', response.row_color);
+                        }
+                    },
+                    error: function(error) {
+                        console.error("Error updating item:", error);
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
