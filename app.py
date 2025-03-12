@@ -45,7 +45,7 @@ def get_row_color(last_checked):
         if days_difference < 1:
             return '#00ff00aa'  # green
         elif 1 <= days_difference < 4:
-            return '#adff2faa'  # greenyellow
+            return '#ff9800aa'  # orange (varningsfärg)
         elif 4 <= days_difference <= 8:
             return '#ff8c00aa'  # darkorange
         else:
@@ -58,11 +58,11 @@ def get_warning_color(quantity, alert_quantity):
     if quantity is not None and alert_quantity is not None:
         quantity_difference = quantity - alert_quantity
         if quantity_difference == 0:
-            return '#adff2faa'
+            return '#ff9800aa'  # Mer orangeaktig varningsfärg
         elif quantity_difference < 0:
-            return '#ff0000aa'
+            return '#ff0000aa'  # Röd för kritiskt
         else:
-            return '#00ff00aa'
+            return '#00ff00aa'  # Grön för OK
     else:
         return 'grey'
 
