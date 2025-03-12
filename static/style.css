@@ -279,23 +279,92 @@ button:hover {
 }
 
 /* Inventory table layout */
+.inventory-table {
+  table-layout: fixed !important; /* Tvinga fixed layout */
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: collapse;
+  max-width: none; /* Förhindra ärva max-width */
+  margin: 1em 0;
+}
+
 .inventory-table th,
 .inventory-table td {
   font-size: 0.95em;
+  padding: 8px 5px;
+  box-sizing: border-box;
+  overflow: visible; /* Tillåt innehåll att synas fullt ut */
 }
 
-@media screen and (max-width: 768px) {
+/* Direkta kolumnbreddsinställningar - starkare än col */
+.inventory-table th:nth-child(1),
+.inventory-table td:nth-child(1) { width: 28%; } /* Namn */
+
+.inventory-table th:nth-child(2),
+.inventory-table td:nth-child(2) { width: 8%; }  /* Antal */
+
+.inventory-table th:nth-child(3),
+.inventory-table td:nth-child(3) { width: 8%; }  /* Larm */
+
+.inventory-table th:nth-child(4),
+.inventory-table td:nth-child(4) { width: 12%; } /* Enhet */
+
+.inventory-table th:nth-child(5), 
+.inventory-table td:nth-child(5) { width: 12%; } /* Kategori - samma som enhet */
+
+.inventory-table th:nth-child(6),
+.inventory-table td:nth-child(6) { width: 12%; } /* Datum */
+
+.inventory-table th:nth-child(7),
+.inventory-table td:nth-child(7) { width: 14%; } /* Åtgärder - reducerad med 6% */
+
+/* För alla skärmar */
+.input-name, .input-unit, .input-category {
+  width: 100%; /* Full bredd av cellen */
+  box-sizing: border-box;
+  min-width: 0; /* Tillåt krympning */
+}
+
+.input-number {
+  width: 100% !important;
+  max-width: 45px !important;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Fixa input-fält för att passa inom celler */
+.inventory-table td {
+  position: relative; /* För absolut positionering inuti */
+}
+
+.inventory-table input {
+  padding: 5px;
+  height: 32px;
+  font-size: 14px;
+}
+
+@media screen and (max-width: 1024px) {
   .inventory-table {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
+    table-layout: auto; /* Tillbaka till auto på små skärmar för bättre scrollning */
   }
   
   .inventory-table th,
   .inventory-table td {
-    min-width: 70px;
     white-space: nowrap;
+  }
+  
+  /* Justera inputfälten för bättre mobil-upplevelse */
+  .input-name {
+    width: 100%;
+    min-width: 120px;
+  }
+  
+  .input-unit, .input-category {
+    min-width: 80px;
   }
 }
 
