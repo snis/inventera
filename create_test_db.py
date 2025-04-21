@@ -6,6 +6,13 @@ from app import create_app, db
 from app.models.item import Item
 from datetime import datetime, timedelta
 import random
+import os
+import shutil
+
+# Constants for database paths
+TEST_DB_PATH = 'tests/data/test_db.sqlite3'
+INSTANCE_DB_PATH = 'instance/db.sqlite3'
+EMPTY_DB_PATH = 'tests/data/empty_db.sqlite3'
 
 # Kategorier och artiklar för testdatabasen
 test_data = {
@@ -43,25 +50,44 @@ test_data = {
     ]
 }
 
-def create_test_database():
+def create_test_database(target_path=None):
     """
     Create a test database with sample data.
+    
+    Args:
+        target_path: Optional path where to create the database. 
+                    If None, creates in instance/db.sqlite3
     """
+    # Determine database URI based on target path
+    if target_path is None:
+        target_path = INSTANCE_DB_PATH
+        db_uri = 'sqlite:///../instance/db.sqlite3'
+    else:
+        # Make relative path to absolute path
+        abs_path = os.path.abspath(target_path)
+        db_uri = f'sqlite:///{abs_path}'
+    
+    print(f"Creating test database at: {target_path}")
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    
+    # Initialize app with the correct database URI
     app = create_app({
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///../instance/db.sqlite3'
+        'SQLALCHEMY_DATABASE_URI': db_uri
     })
     
     with app.app_context():
-        # Radera befintlig databas och skapa en ny
+        # Drop existing database and create a new one
         db.drop_all()
         db.create_all()
         
         now = datetime.now()
         
-        # Skapa artiklar med varierande datum för senaste kontroll
+        # Create items with varying dates for last check
         for category, items in test_data.items():
             for item_data in items:
-                # Slumpa datum inom de senaste 10 dagarna
+                # Randomize date within the last 10 days
                 days_ago = random.randint(0, 10)
                 hours_ago = random.randint(0, 23)
                 last_checked = now - timedelta(days=days_ago, hours=hours_ago)
@@ -77,7 +103,61 @@ def create_test_database():
                 db.session.add(item)
         
         db.session.commit()
-        print(f"Testdatabas skapad med {sum(len(items) for items in test_data.values())} artiklar i {len(test_data)} kategorier.")
+        print(f"Test database created with {sum(len(items) for items in test_data.values())} items in {len(test_data)} categories.")
+    
+    # If we created the database in a non-standard location, also save a copy to the test directory
+    if target_path != TEST_DB_PATH and target_path != EMPTY_DB_PATH:
+        shutil.copy(target_path, TEST_DB_PATH)
+        print(f"Saved a copy to {TEST_DB_PATH} for future use")
+
+def create_empty_database(target_path=None):
+    """
+    Create an empty database with schema but no data.
+    
+    Args:
+        target_path: Optional path where to create the database.
+                    If None, creates in instance/db.sqlite3
+    """
+    # Determine database URI based on target path
+    if target_path is None:
+        target_path = INSTANCE_DB_PATH
+        db_uri = 'sqlite:///../instance/db.sqlite3'
+    else:
+        # Make relative path to absolute path
+        abs_path = os.path.abspath(target_path)
+        db_uri = f'sqlite:///{abs_path}'
+    
+    print(f"Creating empty database at: {target_path}")
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    
+    # Initialize app with the correct database URI
+    app = create_app({
+        'SQLALCHEMY_DATABASE_URI': db_uri
+    })
+    
+    with app.app_context():
+        # Drop existing database and create a new one
+        db.drop_all()
+        db.create_all()
+        print(f"Empty database created at {target_path}")
+    
+    # If we created the database in a non-standard location, also save a copy to the test directory
+    if target_path != EMPTY_DB_PATH:
+        shutil.copy(target_path, EMPTY_DB_PATH)
+        print(f"Saved a copy to {EMPTY_DB_PATH} for future use")
+
 
 if __name__ == "__main__":
-    create_test_database()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Create databases for the inventera application')
+    parser.add_argument('--empty', action='store_true', help='Create an empty database')
+    parser.add_argument('--path', type=str, help='Custom path for the database')
+    args = parser.parse_args()
+    
+    if args.empty:
+        create_empty_database(args.path)
+    else:
+        create_test_database(args.path)

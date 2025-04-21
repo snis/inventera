@@ -3,8 +3,7 @@ venv
 *.pyc
 *.pyo
 *.pyd
-instance/
-db.sqlite3
+instance/db.sqlite3
 screenshots
 .gitignore
 .git
