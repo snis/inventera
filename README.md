@@ -42,7 +42,7 @@ Inventera is a simple and effective inventory management web application built w
 
 4. Run the application:
    ```
-   python app.py
+   python run.py
    ```
 
 5. Access the application at http://localhost:5000
