@@ -47,7 +47,9 @@ def create_test_database():
     """
     Create a test database with sample data.
     """
-    app = create_app()
+    app = create_app({
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///../instance/db.sqlite3'
+    })
     
     with app.app_context():
         # Radera befintlig databas och skapa en ny
