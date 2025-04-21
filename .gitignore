@@ -1,4 +1,24 @@
+# Only exclude production databases
 instance/db.sqlite3
-db.sqlite3
+# Include test databases in tests/data/
+
+# Python cache files
 __pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
 venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
