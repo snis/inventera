@@ -71,10 +71,29 @@ Inventera is a simple and effective inventory management web application built w
 
 ## Development
 
-To create a test database with sample data:
-```
+### Database Management
+
+The application uses SQLite databases in the following structure:
+
+- **Production database**: `instance/db.sqlite3` - Created automatically when running the app
+- **Test databases**: Located in `tests/data/` directory
+  - `test_db.sqlite3` - Contains sample test data
+  - `empty_db.sqlite3` - Empty database with schema only
+
+Database utilities:
+
+```bash
+# Create a test database with sample data:
 python create_test_db.py
+
+# Create an empty database (schema only):
+python create_test_db.py --empty
+
+# Specify a custom database path:
+python create_test_db.py --path /path/to/custom_db.sqlite3
 ```
+
+If the production database doesn't exist, the application will create it automatically on startup.
 
 ## Technologies
 
@@ -82,6 +101,27 @@ python create_test_db.py
 - Database: SQLite
 - Frontend: HTML, CSS, JavaScript/jQuery
 - Container: Docker support
+
+## Project Structure
+
+```
+inventera/
+├── app/                    # Main application package
+│   ├── controllers/        # Route handlers
+│   ├── models/             # Database models
+│   ├── static/             # Static assets (CSS, JS)
+│   ├── templates/          # Jinja2 HTML templates
+│   └── utils/              # Helper utilities
+├── instance/               # Instance-specific data
+│   └── db.sqlite3          # Production database
+├── tests/                  # Test files
+│   └── data/               # Test databases
+│       ├── empty_db.sqlite3  # Empty schema
+│       └── test_db.sqlite3   # Sample data
+├── run.py                  # Application entry point
+├── app.py                  # Backwards compatibility module
+└── create_test_db.py       # Database management utility
+```
 
 ## Screenshots
 
