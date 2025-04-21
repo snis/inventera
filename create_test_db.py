@@ -1,4 +1,9 @@
-from app import app, db, Item
+"""
+Create a test database with sample data.
+This script populates the database with sample inventory items.
+"""
+from app import create_app, db
+from app.models.item import Item
 from datetime import datetime, timedelta
 import random
 
@@ -39,6 +44,11 @@ test_data = {
 }
 
 def create_test_database():
+    """
+    Create a test database with sample data.
+    """
+    app = create_app()
+    
     with app.app_context():
         # Radera befintlig databas och skapa en ny
         db.drop_all()

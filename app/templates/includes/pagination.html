@@ -1,0 +1,29 @@
+{% if pagination and pagination.total_pages > 1 %}
+<div class="pagination">
+    <div class="page-info">
+        Sida {{ pagination.page }} av {{ pagination.total_pages }} 
+        ({{ pagination.total_items }} artikel{{ "er" if pagination.total_items != 1 else "" }})
+    </div>
+    <div class="page-controls">
+        {% if pagination.has_prev %}
+            <a href="{{ url_for(request.endpoint, page=pagination.page-1) }}" class="page-link">&laquo; Föregående</a>
+        {% else %}
+            <span class="page-link disabled">&laquo; Föregående</span>
+        {% endif %}
+        
+        {% for p in range(max(1, pagination.page-2), min(pagination.total_pages+1, pagination.page+3)) %}
+            {% if p == pagination.page %}
+                <span class="page-link active">{{ p }}</span>
+            {% else %}
+                <a href="{{ url_for(request.endpoint, page=p) }}" class="page-link">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+            <a href="{{ url_for(request.endpoint, page=pagination.page+1) }}" class="page-link">Nästa &raquo;</a>
+        {% else %}
+            <span class="page-link disabled">Nästa &raquo;</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
