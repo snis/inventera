@@ -21,7 +21,13 @@ def create_app(test_config=None):
     app.logger.setLevel(logging.INFO)
     
     # Default configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../instance/db.sqlite3'
+    db_path = '../instance/db.sqlite3'
+    # Check if database exists, if not try to use the test database
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), db_path)):
+        app.logger.warning(f"Database not found at {db_path}, attempting to create one")
+        # The database will be created by db.create_all() below
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order for readability
     

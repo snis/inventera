@@ -10,9 +10,7 @@ import os
 import shutil
 
 # Constants for database paths
-TEST_DB_PATH = 'tests/data/test_db.sqlite3'
 INSTANCE_DB_PATH = 'instance/db.sqlite3'
-EMPTY_DB_PATH = 'tests/data/empty_db.sqlite3'
 
 # Kategorier och artiklar för testdatabasen
 test_data = {
@@ -105,10 +103,9 @@ def create_test_database(target_path=None):
         db.session.commit()
         print(f"Test database created with {sum(len(items) for items in test_data.values())} items in {len(test_data)} categories.")
     
-    # If we created the database in a non-standard location, also save a copy to the test directory
-    if target_path != TEST_DB_PATH and target_path != EMPTY_DB_PATH:
-        shutil.copy(target_path, TEST_DB_PATH)
-        print(f"Saved a copy to {TEST_DB_PATH} for future use")
+    # We no longer save copies to the test directory because we're using .gitignore
+    # This ensures we don't commit database files to the repository
+    print("Database created successfully - ready for use")
 
 def create_empty_database(target_path=None):
     """
@@ -143,10 +140,9 @@ def create_empty_database(target_path=None):
         db.create_all()
         print(f"Empty database created at {target_path}")
     
-    # If we created the database in a non-standard location, also save a copy to the test directory
-    if target_path != EMPTY_DB_PATH:
-        shutil.copy(target_path, EMPTY_DB_PATH)
-        print(f"Saved a copy to {EMPTY_DB_PATH} for future use")
+    # We no longer save copies to the test directory because we're using .gitignore
+    # This ensures we don't commit database files to the repository
+    print("Empty database created successfully - ready for use")
 
 
 if __name__ == "__main__":
