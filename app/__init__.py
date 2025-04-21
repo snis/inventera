@@ -5,6 +5,7 @@ Main application package.
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
+import logging
 
 # Initialize SQLAlchemy instance
 db = SQLAlchemy()
@@ -16,8 +17,11 @@ def create_app(test_config=None):
     """
     app = Flask(__name__)
     
+    # Configure logging
+    app.logger.setLevel(logging.INFO)
+    
     # Default configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../instance/db.sqlite3'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order for readability
     
@@ -45,4 +49,5 @@ def create_app(test_config=None):
     with app.app_context():
         db.create_all()
     
+    app.logger.info("Application initialized successfully")
     return app
