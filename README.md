@@ -34,10 +34,10 @@ Inventera is a simple and effective inventory management web application built w
 3. Initialize the database:
    ```
    # For an empty database:
-   cp instance/db.sqlite3.empty instance/db.sqlite3
+   python create_test_db.py --empty
    
    # For a database with test data:
-   cp instance/db.sqlite3.testdata instance/db.sqlite3
+   python create_test_db.py
    ```
 
 4. Run the application:
