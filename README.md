@@ -2,7 +2,7 @@
 
 Inventera is a simple and effective inventory management web application built with Flask. It helps track inventory items, monitor stock levels, and manage inventory checks.
 
-![Inventory Screen](screenshots/inventory.jpg)
+![Inventory Screen](screenshots/inventory.png)
 
 ## Features
 
@@ -125,8 +125,8 @@ inventera/
 
 ## Screenshots
 
-![Home Screen](screenshots/index.jpg)
-![Inventory Screen](screenshots/inventory.jpg)
+![Home Screen](screenshots/index.png)
+![Inventory Screen](screenshots/inventory.png)
 
 ## License
 
