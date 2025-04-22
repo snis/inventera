@@ -163,7 +163,7 @@
                 
                 $.ajax({
                     type: 'POST',
-                    url: "{{ url_for('inventory.remove_item', item_id='') }}" + itemId,
+                    url: "{{ url_for('inventory.remove_item', item_id=0) }}".replace('0', itemId),
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
