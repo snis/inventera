@@ -100,7 +100,7 @@ def inventory(page: int = 1):
         
         # Count total items for pagination
         total_items = db.session.query(Item).count()
-        total_pages = (total_items + items_per_page - 1) // items_per_page
+        total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
 
         return render_template(
             'inventory.html',
@@ -117,6 +117,9 @@ def inventory(page: int = 1):
         )
     except Exception as e:
         current_app.logger.error(f"Error rendering inventory page: {str(e)}")
+        # Log the full traceback for debugging
+        import traceback
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return render_template('error.html', message="Ett fel uppstod vid hämtning av data.")
 
 
