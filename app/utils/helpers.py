@@ -68,29 +68,45 @@ def get_items_by_category(page: int = 1, items_per_page: int = 50) -> Dict[str, 
     Returns:
         Dictionary with categories as keys and lists of items as values
     """
+    # Validate inputs
+    if not isinstance(page, int) or page < 1:
+        page = 1
+    
+    if not isinstance(items_per_page, int) or items_per_page < 1:
+        items_per_page = 50
+    
     # Get all distinct categories
     categories = Item.query.with_entities(Item.category).distinct()
     items_by_category = {}
     total_items = 0
     
-    for category in categories:
-        cat_name = category[0]
-        # Get all items for the category
-        query = Item.query.filter_by(category=cat_name).order_by(Item.name)
-        
-        # If pagination is enabled (items_per_page > 0)
-        if items_per_page > 0:
-            # Calculate total items for calculating pagination info
-            category_count = query.count()
-            total_items += category_count
+    try:
+        for category in categories:
+            if not category or not category[0]:
+                continue  # Skip empty categories
+                
+            cat_name = category[0]
+            # Get all items for the category
+            query = Item.query.filter_by(category=cat_name).order_by(Item.name)
             
-            # Apply pagination to the query
-            items = query.limit(items_per_page).offset((page - 1) * items_per_page).all()
-        else:
-            # No pagination
-            items = query.all()
-        
-        if items:  # Only add category if there are items in the current page
-            items_by_category[cat_name] = items
+            # If pagination is enabled (items_per_page > 0)
+            if items_per_page > 0:
+                # Calculate total items for calculating pagination info
+                category_count = query.count()
+                total_items += category_count
+                
+                # Apply pagination to the query
+                items = query.limit(items_per_page).offset((page - 1) * items_per_page).all()
+            else:
+                # No pagination
+                items = query.all()
+            
+            if items:  # Only add category if there are items in the current page
+                items_by_category[cat_name] = items
+    except Exception as e:
+        # Log error but continue with an empty result rather than breaking the page
+        import logging
+        logging.error(f"Error in get_items_by_category: {str(e)}")
+        return {}
     
     return items_by_category

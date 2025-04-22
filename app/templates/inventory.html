@@ -43,6 +43,7 @@
             </thead>
             <tbody>
                 {% for category, items in items_by_category.items()|sort %}
+                    {% if items %}
                     {% for item in items|sort(attribute='name') %}
                         <tr id="item-row-{{ item.id }}">
                             <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
@@ -69,6 +70,7 @@
                             </td>
                         </tr>
                     {% endfor %}
+                    {% endif %}
                 {% endfor %}
                 <!-- Add a row with empty cells and an "Add Item" button -->
                 <tr id="add-item-row">
