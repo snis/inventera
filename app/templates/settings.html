@@ -46,21 +46,14 @@
                     <li>Aktivera Google Tasks API för projektet</li>
                     <li>Skapa en API-nyckel under "Credentials" (för identifiering)</li>
                     <li>Skapa OAuth 2.0-uppgifter (OAuth client ID) för webbapplikation</li>
-                    <li>För att få en åtkomsttoken, använd <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a>:
+                    <li>För att få en åtkomsttoken, använd antingen ett eget skript eller ett verktyg som <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank">Google Cloud Console</a> för att direkt generera en åtkomsttoken:
                         <ul>
-                            <li>Klicka på kugghjulet (inställningar) i övre högra hörnet</li>
-                            <li>Markera "Use your own OAuth credentials"</li>
-                            <li>Ange ditt Client ID och Client Secret från Google Cloud Console</li>
-                            <li>Stäng inställningarna</li>
-                            <li>Scrolla ner och hitta "Google Tasks API v1"</li>
-                            <li>Markera "https://www.googleapis.com/auth/tasks"</li>
-                            <li>Klicka på "Authorize APIs" och logga in med ditt Google-konto</li>
-                            <li>När du får "redirect_uri_mismatch" fel, kopiera den URL:en som visas som "skulle ha omdirigerats till"</li>
-                            <li>Gå till Google Cloud Console -> Credentials -> din OAuth 2.0 Client ID</li>
-                            <li>Lägg till denna URL under "Authorized redirect URIs" och spara</li>
-                            <li>Gå tillbaka till OAuth Playground och försök igen</li>
-                            <li>Klicka på "Exchange authorization code for tokens"</li>
-                            <li>Kopiera "Access token" (börjar med "ya29.")</li>
+                            <li>Gå till API &amp; Services -> OAuth consent screen</li>
+                            <li>Lägg till scope "https://www.googleapis.com/auth/tasks"</li>
+                            <li>Gå till Credentials och skapa en OAuth 2.0 Client ID för Desktop Application (inte Web)</li>
+                            <li>Ladda ner JSON-filen med inloggningsuppgifter</li>
+                            <li>Använd <a href="https://github.com/googlesamples/oauth-apps-for-windows" target="_blank">ett exempel-program från Google</a> för att generera en åtkomsttoken</li>
+                            <li>Alternativt, använd Google Cloud SDK kommandot: <code>gcloud auth application-default login --scopes=https://www.googleapis.com/auth/tasks</code></li>
                         </ul>
                     </li>
                     <li>Fyll i API-nyckeln och åtkomsttokenen nedan</li>
