@@ -202,6 +202,10 @@ def auth_callback():
         redirect_uri = url_for('settings.auth_callback', _external=True)
         token_data = oauth.fetch_token(redirect_uri, request.url)
         
+        current_app.logger.debug(f"Token data received: {token_data is not None}")
+        if token_data:
+            current_app.logger.debug(f"Token keys: {list(token_data.keys())}")
+        
         if not token_data:
             return create_response(
                 success=False,

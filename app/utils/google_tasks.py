@@ -35,11 +35,16 @@ class GoogleTasksService:
         """Load OAuth token."""
         try:
             token_data = self.oauth.get_token()
+            current_app.logger.debug(f"Token data in GoogleTasksService: {token_data is not None}")
+            
             if token_data and 'access_token' in token_data:
+                current_app.logger.debug("Found valid access token, setting authenticated=True")
                 self.authenticated = True
             else:
+                current_app.logger.debug("No valid token found, setting authenticated=False")
                 self.error_message = "No valid token found. Please authenticate with Google."
         except Exception as e:
+            current_app.logger.error(f"Error loading token: {str(e)}")
             self.error_message = f"Error loading token: {str(e)}"
     
     def save_credentials(self, client_id: str, client_secret: str) -> None:

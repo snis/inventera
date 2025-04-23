@@ -7,7 +7,13 @@ from typing import Dict, Optional, Any
 from flask import current_app, redirect, url_for, session, request
 from oauthlib.oauth2 import WebApplicationClient
 import requests
+import logging
 from app.models.settings import Settings
+
+# For development only - this allows OAuth to work without HTTPS
+# WARNING: This should be removed in production
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+logging.getLogger('google_oauth').setLevel(logging.DEBUG)
 
 # Google OAuth2 endpoint information
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
@@ -105,6 +111,10 @@ class GoogleOAuth:
             return None
         
         try:
+            # Debug logging
+            current_app.logger.debug(f"Authorization response: {authorization_response}")
+            current_app.logger.debug(f"Redirect URI: {redirect_uri}")
+            
             # Parse authorization code from response
             token_url, headers, body = self.client.prepare_token_request(
                 GOOGLE_TOKEN_URL,
@@ -113,6 +123,11 @@ class GoogleOAuth:
                 client_secret=self.client_secret
             )
             
+            # More debug logging
+            current_app.logger.debug(f"Token URL: {token_url}")
+            current_app.logger.debug(f"Token headers: {headers}")
+            current_app.logger.debug(f"Token body: {body}")
+            
             # Exchange code for token
             token_response = requests.post(
                 token_url,
@@ -120,16 +135,25 @@ class GoogleOAuth:
                 data=body,
                 auth=(self.client_id, self.client_secret),
             )
+            
+            # Check response
+            current_app.logger.debug(f"Token response status: {token_response.status_code}")
+            current_app.logger.debug(f"Token response: {token_response.text[:200]}")  # Log first 200 chars only
+            
             token_response.raise_for_status()
             
             # Parse and store token
             token_data = token_response.json()
+            current_app.logger.debug(f"Got token data with keys: {list(token_data.keys())}")
             self._save_token(token_data)
             
             return token_data
         
         except Exception as e:
             current_app.logger.error(f"Error fetching token: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                current_app.logger.error(f"Response status: {e.response.status_code}")
+                current_app.logger.error(f"Response text: {e.response.text}")
             return None
     
     def _save_token(self, token_data: Dict[str, Any]) -> None:
