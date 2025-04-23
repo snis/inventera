@@ -30,6 +30,7 @@ def create_app(test_config=None):
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order for readability
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())  # For session support
     
     # Override with test config if provided
     if test_config:

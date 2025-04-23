@@ -2,15 +2,17 @@
 Settings blueprint for the inventory application.
 Contains routes for application settings management.
 """
-from flask import Blueprint, request, jsonify, redirect, url_for, current_app, render_template
+from flask import Blueprint, request, jsonify, redirect, url_for, current_app, render_template, session
 from typing import Dict, List
 import json
 import os
+import secrets
 
 from app import db
 from app.models.settings import Settings, CategoryTaskMapping
 from app.utils.responses import create_response, is_ajax_request
 from app.utils.google_tasks import GoogleTasksService, sync_low_inventory_items, check_old_items
+from app.utils.google_oauth import GoogleOAuth
 
 # Create blueprint
 settings_bp = Blueprint('settings', __name__)
@@ -34,10 +36,13 @@ def settings():
         # Get default task list
         default_tasklist = CategoryTaskMapping.get_default_tasklist()
         
+        # Get OAuth status
+        oauth = GoogleOAuth()
+        client_configured = oauth.is_configured()
+        has_token = oauth.get_token() is not None
+        
         # Get all task lists if authenticated
         tasklists = []
-        api_key = Settings.get('google_api_key')
-        access_token = Settings.get('google_access_token')
         
         if tasks_service.is_authenticated():
             tasklists = tasks_service.get_tasklists()
@@ -68,56 +73,153 @@ def settings():
             tasklists=tasklists,
             categories=existing_categories,
             unmapped_categories=unmapped_categories,
-            has_api_key=bool(api_key),
-            has_access_token=bool(access_token)
+            client_configured=client_configured,
+            has_token=has_token
         )
     except Exception as e:
         current_app.logger.error(f"Error rendering settings page: {str(e)}")
         return render_template('error.html', message="Ett fel uppstod vid hämtning av inställningar.")
 
 
-@settings_bp.route('/settings/credentials', methods=['POST'])
-def set_credentials():
+@settings_bp.route('/settings/client_credentials', methods=['POST'])
+def set_client_credentials():
     """
-    Set Google Tasks API key and access token.
+    Set Google OAuth client credentials.
     
     Returns:
         JSON response or redirect
     """
     try:
         # Get credentials from request
-        api_key = request.form.get('api_key')
-        access_token = request.form.get('access_token')
+        client_id = request.form.get('client_id')
+        client_secret = request.form.get('client_secret')
         
-        if not api_key or not access_token:
+        if not client_id or not client_secret:
             return create_response(
                 success=False,
-                message='Både API-nyckel och åtkomsttoken måste anges',
+                message='Både Client ID och Client Secret måste anges',
                 redirect_url=url_for('settings.settings')
             )
         
         # Save the credentials
         tasks_service = GoogleTasksService()
-        tasks_service.save_credentials(api_key, access_token)
+        tasks_service.save_credentials(client_id, client_secret)
         
-        if tasks_service.is_authenticated():
-            return create_response(
-                success=True,
-                message='Autentiseringsuppgifter sparade',
-                redirect_url=url_for('settings.settings')
-            )
-        else:
-            return create_response(
-                success=False,
-                message=f'Misslyckades med att spara autentiseringsuppgifter: {tasks_service.get_error()}',
-                redirect_url=url_for('settings.settings')
-            )
+        return create_response(
+            success=True,
+            message='OAuth-uppgifter sparade. Du måste nu autentisera med Google.',
+            redirect_url=url_for('settings.settings')
+        )
     
     except Exception as e:
-        current_app.logger.error(f"Error in set_credentials: {str(e)}")
+        current_app.logger.error(f"Error in set_client_credentials: {str(e)}")
         return create_response(
             success=False,
-            message='Ett fel uppstod vid sparande av autentiseringsuppgifter',
+            message='Ett fel uppstod vid sparande av OAuth-uppgifter',
+            redirect_url=url_for('settings.settings')
+        )
+
+@settings_bp.route('/auth/google')
+def auth_google():
+    """
+    Initiate OAuth flow with Google.
+    
+    Returns:
+        Redirect to Google's authorization page
+    """
+    try:
+        oauth = GoogleOAuth()
+        
+        if not oauth.is_configured():
+            return create_response(
+                success=False,
+                message='OAuth-klienten är inte konfigurerad. Ange Client ID och Client Secret först.',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        # Generate CSRF token for security
+        session['oauth_state'] = secrets.token_hex(16)
+        
+        # Get authorization URL
+        redirect_uri = url_for('settings.auth_callback', _external=True)
+        auth_url = oauth.get_authorization_url(redirect_uri)
+        
+        if not auth_url:
+            return create_response(
+                success=False,
+                message='Kunde inte generera auktoriserings-URL',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        # Redirect to Google's authorization page
+        return redirect(auth_url)
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in auth_google: {str(e)}")
+        return create_response(
+            success=False,
+            message=f'Ett fel uppstod vid autentisering: {str(e)}',
+            redirect_url=url_for('settings.settings')
+        )
+
+@settings_bp.route('/auth/callback')
+def auth_callback():
+    """
+    Handle OAuth callback from Google.
+    
+    Returns:
+        Redirect to settings page
+    """
+    try:
+        oauth = GoogleOAuth()
+        
+        if not oauth.is_configured():
+            return create_response(
+                success=False,
+                message='OAuth-klienten är inte konfigurerad',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        # Check for errors
+        if 'error' in request.args:
+            error = request.args.get('error')
+            return create_response(
+                success=False,
+                message=f'Autentisering avbröts: {error}',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        # Get authorization code
+        code = request.args.get('code')
+        if not code:
+            return create_response(
+                success=False,
+                message='Ingen auktoriseringskod mottagen',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        # Exchange code for token
+        redirect_uri = url_for('settings.auth_callback', _external=True)
+        token_data = oauth.fetch_token(redirect_uri, request.url)
+        
+        if not token_data:
+            return create_response(
+                success=False,
+                message='Kunde inte hämta åtkomsttoken',
+                redirect_url=url_for('settings.settings')
+            )
+        
+        return create_response(
+            success=True,
+            message='Autentisering lyckades! Du kan nu använda Google Tasks-integrationen.',
+            redirect_url=url_for('settings.settings')
+        )
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in auth_callback: {str(e)}")
+        return create_response(
+            success=False,
+            message=f'Ett fel uppstod vid autentisering: {str(e)}',
             redirect_url=url_for('settings.settings')
         )
 

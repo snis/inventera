@@ -44,34 +44,32 @@
                 <ol>
                     <li>Skapa ett projekt i <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
                     <li>Aktivera Google Tasks API för projektet</li>
-                    <li>Skapa en API-nyckel under "Credentials" (för identifiering)</li>
-                    <li>Skapa OAuth 2.0-uppgifter (OAuth client ID) för webbapplikation</li>
-                    <li>För att få en åtkomsttoken, använd antingen ett eget skript eller ett verktyg som <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank">Google Cloud Console</a> för att direkt generera en åtkomsttoken:
-                        <ul>
-                            <li>Gå till API &amp; Services -> OAuth consent screen</li>
-                            <li>Lägg till scope "https://www.googleapis.com/auth/tasks"</li>
-                            <li>Gå till Credentials och skapa en OAuth 2.0 Client ID för Desktop Application (inte Web)</li>
-                            <li>Ladda ner JSON-filen med inloggningsuppgifter</li>
-                            <li>Använd <a href="https://github.com/googlesamples/oauth-apps-for-windows" target="_blank">ett exempel-program från Google</a> för att generera en åtkomsttoken</li>
-                            <li>Alternativt, använd Google Cloud SDK kommandot: <code>gcloud auth application-default login --scopes=https://www.googleapis.com/auth/tasks</code></li>
-                        </ul>
-                    </li>
-                    <li>Fyll i API-nyckeln och åtkomsttokenen nedan</li>
+                    <li>Gå till OAuth consent screen och konfigurera den (external är ok för testning)</li>
+                    <li>Lägg till scope "https://www.googleapis.com/auth/tasks" i OAuth consent screen</li>
+                    <li>Skapa en OAuth 2.0 Client ID för Web Application</li>
+                    <li>Under "Authorized redirect URIs", lägg till följande URL:</li>
+                    <li><code>{{ url_for('settings.auth_callback', _external=True) }}</code></li>
+                    <li>Kopiera Client ID och Client Secret och fyll i nedan</li>
                 </ol>
             </div>
             
-            <form id="credentials-form" action="{{ url_for('settings.set_credentials') }}" method="post">
+            <form id="client-credentials-form" action="{{ url_for('settings.set_client_credentials') }}" method="post">
                 <div class="form-group">
-                    <label for="api_key">Google API-nyckel:</label>
-                    <input type="text" name="api_key" id="api_key" placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J..." class="input-text" value="{{ 'XXXX-XXXX-XXXX...' if has_api_key else '' }}">
+                    <label for="client_id">Client ID:</label>
+                    <input type="text" name="client_id" id="client_id" placeholder="123456789-abcdef.apps.googleusercontent.com" class="input-text">
                 </div>
                 <div class="form-group">
-                    <label for="access_token">Google Åtkomsttoken:</label>
-                    <input type="text" name="access_token" id="access_token" placeholder="ya29.XXXX..." class="input-text" value="{{ 'XXXX-XXXX-XXXX...' if has_access_token else '' }}">
-                    <p class="help-text">OBS: Åtkomsttokens går ut efter ca 1 timme. Om synkroniseringen slutar fungera behöver du förnya token.</p>
+                    <label for="client_secret">Client Secret:</label>
+                    <input type="text" name="client_secret" id="client_secret" placeholder="GOCSPX-xxxxxxx" class="input-text">
                 </div>
-                <button type="submit" class="btn">Spara autentiseringsuppgifter</button>
+                <button type="submit" class="btn">Spara Client Credentials</button>
             </form>
+            
+            <div class="oauth-section">
+                <h3>Autentisera med Google</h3>
+                <p>Efter att du sparat dina Client Credentials, klicka på knappen nedan för att autentisera med Google:</p>
+                <a href="{{ url_for('settings.auth_google') }}" class="btn">Logga in med Google</a>
+            </div>
         </div>
         {% else %}
         <!-- Show remove credentials option if authenticated -->
@@ -208,7 +206,7 @@
             });
             
             // Handle form submission with AJAX
-            $('#credentials-form, #remove-credentials-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
+            $('#client-credentials-form, #remove-credentials-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
                 e.preventDefault();
                 const form = $(this);
                 
