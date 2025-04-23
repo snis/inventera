@@ -36,12 +36,19 @@ This will add the necessary tables and columns for Google Tasks integration.
 4. Create an API key under "Credentials" (for identification)
 5. Set appropriate API key restrictions for security
 6. Create OAuth 2.0 credentials (OAuth client ID) for web application
-7. To get an access token, use [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
+7. Configure your OAuth consent screen and create credentials:
+   - In Google Cloud Console, go to "OAuth consent screen" and configure it
+   - In "Credentials", create an OAuth 2.0 Client ID for Web application
+   - Add `https://developers.google.com/oauthplayground` to the Authorized redirect URIs
+   - Save your changes
+   
+8. To get an access token, use [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
    - Click the settings (gear) icon in the top right corner
    - Select "Use your own OAuth credentials"
    - Enter your Client ID and Client Secret from Google Cloud Console
    - Close settings
-   - Scroll down and select "Tasks API v1" and check "https://www.googleapis.com/auth/tasks"
+   - Scroll down and find "Google Tasks API v1"
+   - Check "https://www.googleapis.com/auth/tasks"
    - Click "Authorize APIs" and sign in with your Google account
    - Click "Exchange authorization code for tokens"
    - Copy the "Access token" (starts with "ya29.")
