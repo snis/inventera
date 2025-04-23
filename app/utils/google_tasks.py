@@ -342,7 +342,8 @@ def sync_low_inventory_items() -> Tuple[int, List[str]]:
                     tasklist_name = default_tasklist['tasklist_name']
                 
                 # Create task title and notes
-                title = f"Köp {item.name}"
+                # Create task title - just use the item name directly
+                title = f"{item.name}"
                 notes = (f"Kategori: {item.category}\n"
                          f"Nuvarande antal: {item.quantity} {item.unit}\n"
                          f"Larmgräns: {item.alert_quantity} {item.unit}\n"
