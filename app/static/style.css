@@ -712,6 +712,13 @@ button:hover {
   text-align: center;
 }
 
+.help-text {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+}
+
 @media screen and (max-width: 768px) {
   .auth-section, .mappings-section {
     padding: 10px;

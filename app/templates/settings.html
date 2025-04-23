@@ -43,10 +43,22 @@
                 <p>För att ansluta till Google Tasks:</p>
                 <ol>
                     <li>Skapa ett projekt i <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
-                    <li>Aktivera Google Tasks API</li>
-                    <li>Skapa en API-nyckel (för identifiering)</li>
-                    <li>Skapa och auktorisera en OAuth 2.0-token (för åtkomst till dina uppgifter)</li>
-                    <li>Fyll i uppgifterna nedan</li>
+                    <li>Aktivera Google Tasks API för projektet</li>
+                    <li>Skapa en API-nyckel under "Credentials" (för identifiering)</li>
+                    <li>Skapa OAuth 2.0-uppgifter (OAuth client ID) för webbapplikation</li>
+                    <li>För att få en åtkomsttoken, använd <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a>:
+                        <ul>
+                            <li>Klicka på kugghjulet (inställningar) i övre högra hörnet</li>
+                            <li>Markera "Use your own OAuth credentials"</li>
+                            <li>Ange ditt Client ID och Client Secret från Google Cloud Console</li>
+                            <li>Stäng inställningarna</li>
+                            <li>Scrolla ner och välj "Tasks API v1" och markera "https://www.googleapis.com/auth/tasks"</li>
+                            <li>Klicka på "Authorize APIs" och logga in med ditt Google-konto</li>
+                            <li>Klicka på "Exchange authorization code for tokens"</li>
+                            <li>Kopiera "Access token" (börjar med "ya29.")</li>
+                        </ul>
+                    </li>
+                    <li>Fyll i API-nyckeln och åtkomsttokenen nedan</li>
                 </ol>
             </div>
             
@@ -58,6 +70,7 @@
                 <div class="form-group">
                     <label for="access_token">Google Åtkomsttoken:</label>
                     <input type="text" name="access_token" id="access_token" placeholder="ya29.XXXX..." class="input-text" value="{{ 'XXXX-XXXX-XXXX...' if has_access_token else '' }}">
+                    <p class="help-text">OBS: Åtkomsttokens går ut efter ca 1 timme. Om synkroniseringen slutar fungera behöver du förnya token.</p>
                 </div>
                 <button type="submit" class="btn">Spara autentiseringsuppgifter</button>
             </form>

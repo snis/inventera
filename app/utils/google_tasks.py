@@ -125,6 +125,12 @@ class SimpleGoogleTasksService:
             current_app.logger.debug(f"Request to {url}")
             current_app.logger.debug(f"Response status: {response.status_code}")
             
+            # Check for token expiration (status code 401)
+            if response.status_code == 401:
+                self.error_message = "Access token has expired. Please generate a new token."
+                current_app.logger.error("Access token has expired")
+                return None
+                
             response.raise_for_status()  # Raise exception for HTTP errors
             
             # Return JSON response or empty dict if no content
