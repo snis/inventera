@@ -281,8 +281,8 @@ class GoogleTasksService:
             return []
 
 
-# For backward compatibility, use the same class name
-GoogleTasksService = SimpleGoogleTasksService
+# No need for backward compatibility alias since we're using the same class name already
+# GoogleTasksService is already defined above
 
 
 def sync_low_inventory_items() -> Tuple[int, List[str]]:
