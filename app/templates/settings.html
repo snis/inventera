@@ -34,67 +34,93 @@
             </div>
         {% endif %}
         
+        <!-- Show credentials form if not authenticated -->
+        {% if not authenticated %}
         <div class="auth-section">
-            <h3>API-nyckel</h3>
+            <h3>Google Tasks Autentisering</h3>
             
             <div class="auth-instructions">
                 <p>För att ansluta till Google Tasks:</p>
                 <ol>
                     <li>Skapa ett projekt i <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
                     <li>Aktivera Google Tasks API</li>
-                    <li>Skapa en API-nyckel</li>
-                    <li>Klistra in API-nyckeln nedan</li>
+                    <li>Skapa en API-nyckel (för identifiering)</li>
+                    <li>Skapa och auktorisera en OAuth 2.0-token (för åtkomst till dina uppgifter)</li>
+                    <li>Fyll i uppgifterna nedan</li>
                 </ol>
             </div>
             
-            <form id="api-key-form" action="{{ url_for('settings.set_api_key') }}" method="post">
+            <form id="credentials-form" action="{{ url_for('settings.set_credentials') }}" method="post">
                 <div class="form-group">
-                    <label for="api_key">Google Tasks API-nyckel:</label>
-                    <input type="text" name="api_key" id="api_key" placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J..." class="input-text">
+                    <label for="api_key">Google API-nyckel:</label>
+                    <input type="text" name="api_key" id="api_key" placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J..." class="input-text" value="{{ 'XXXX-XXXX-XXXX...' if has_api_key else '' }}">
                 </div>
-                <button type="submit" class="btn">Spara API-nyckel</button>
+                <div class="form-group">
+                    <label for="access_token">Google Åtkomsttoken:</label>
+                    <input type="text" name="access_token" id="access_token" placeholder="ya29.XXXX..." class="input-text" value="{{ 'XXXX-XXXX-XXXX...' if has_access_token else '' }}">
+                </div>
+                <button type="submit" class="btn">Spara autentiseringsuppgifter</button>
+            </form>
+        </div>
+        {% else %}
+        <!-- Show remove credentials option if authenticated -->
+        <div class="auth-section">
+            <h3>Autentiseringsuppgifter</h3>
+            <p>Du är ansluten till Google Tasks med dina autentiseringsuppgifter.</p>
+            <form id="remove-credentials-form" action="{{ url_for('settings.remove_credentials') }}" method="post">
+                <button type="submit" class="btn btn-danger">Ta bort autentiseringsuppgifter</button>
             </form>
         </div>
         
-        {% if authenticated %}
-            <div class="mappings-section">
-                <h3>Kategori till Uppgiftslista Mappningar</h3>
-                
-                <!-- Current mappings -->
-                {% if mappings %}
-                    <table class="settings-table">
-                        <thead>
+        <div class="mappings-section">
+            <h3>Kategori till Uppgiftslista Mappningar</h3>
+            
+            <!-- Current mappings -->
+            {% if mappings %}
+                <table class="settings-table">
+                    <thead>
+                        <tr>
+                            <th>Kategori</th>
+                            <th>Uppgiftslista</th>
+                            <th>Åtgärd</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mapping in mappings %}
                             <tr>
-                                <th>Kategori</th>
-                                <th>Uppgiftslista</th>
-                                <th>Åtgärd</th>
+                                <td>{{ mapping.category }}</td>
+                                <td>{{ mapping.tasklist_name }}</td>
+                                <td>
+                                    <form action="{{ url_for('settings.delete_mapping', mapping_id=mapping.id) }}" method="post" class="delete-mapping-form">
+                                        <button type="submit" class="btn-small btn-danger">Ta bort</button>
+                                    </form>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {% for mapping in mappings %}
-                                <tr>
-                                    <td>{{ mapping.category }}</td>
-                                    <td>{{ mapping.tasklist_name }}</td>
-                                    <td>
-                                        <form action="{{ url_for('settings.delete_mapping', mapping_id=mapping.id) }}" method="post" class="delete-mapping-form">
-                                            <button type="submit" class="btn-small btn-danger">Ta bort</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p>Inga mappningar konfigurerade.</p>
-                {% endif %}
-                
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Inga mappningar konfigurerade.</p>
+            {% endif %}
+            
+            {% if tasklists %}
                 <!-- Add new mapping -->
                 <h4>Lägg till ny mappning</h4>
                 
                 <form id="mapping-form" action="{{ url_for('settings.update_mapping') }}" method="post">
                     <div class="form-group">
                         <label for="category">Kategori:</label>
-                        <input type="text" name="category" id="category" required class="input-text">
+                        <select name="category" id="category" required class="input-select">
+                            <option value="">Välj kategori...</option>
+                            {% for category in unmapped_categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                            {% if not unmapped_categories %}
+                                {% for category in categories %}
+                                    <option value="{{ category }}">{{ category }} (redan mappat)</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
                     </div>
                     
                     <div class="form-group">
@@ -111,16 +137,18 @@
                     
                     <button type="submit" class="btn">Spara mappning</button>
                 </form>
-                
-                <!-- Set default task list -->
-                <h3>Standarduppgiftslista</h3>
-                
-                {% if default_tasklist %}
-                    <p>Nuvarande standarduppgiftslista: <strong>{{ default_tasklist.tasklist_name }}</strong></p>
-                {% else %}
-                    <p>Ingen standarduppgiftslista inställd.</p>
-                {% endif %}
-                
+            {% endif %}
+            
+            <!-- Set default task list -->
+            <h3>Standarduppgiftslista</h3>
+            
+            {% if default_tasklist %}
+                <p>Nuvarande standarduppgiftslista: <strong>{{ default_tasklist.tasklist_name }}</strong></p>
+            {% else %}
+                <p>Ingen standarduppgiftslista inställd.</p>
+            {% endif %}
+            
+            {% if tasklists %}
                 <form id="default-form" action="{{ url_for('settings.set_default') }}" method="post">
                     <div class="form-group">
                         <label for="default_tasklist_select">Välj standarduppgiftslista:</label>
@@ -136,7 +164,12 @@
                     
                     <button type="submit" class="btn">Spara som standard</button>
                 </form>
-            </div>
+            {% else %}
+                <div class="alert error">
+                    <p>Kunde inte hämta dina uppgiftslistor. Kontrollera att dina autentiseringsuppgifter är korrekta.</p>
+                </div>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
     </div>
@@ -164,7 +197,7 @@
             });
             
             // Handle form submission with AJAX
-            $('#api-key-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
+            $('#credentials-form, #remove-credentials-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
                 e.preventDefault();
                 const form = $(this);
                 
@@ -176,7 +209,7 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
-                        if (response.status === 'success') {
+                        if (response.status === 'success' || response.success) {
                             alert(response.message || 'Åtgärden lyckades!');
                             // Reload page to show changes
                             location.reload();

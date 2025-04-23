@@ -36,12 +36,28 @@ def settings():
         
         # Get all task lists if authenticated
         tasklists = []
+        api_key = Settings.get('google_api_key')
+        access_token = Settings.get('google_access_token')
+        
         if tasks_service.is_authenticated():
             tasklists = tasks_service.get_tasklists()
+            
+            # Debug logging for tasklists
+            current_app.logger.debug(f"Retrieved {len(tasklists)} task lists")
+            for tasklist in tasklists:
+                current_app.logger.debug(f"Task list: {tasklist}")
         
-        # Get all unique categories from mappings for display
-        categories = db.session.query(db.distinct(CategoryTaskMapping.category)).all()
-        categories = [c[0] for c in categories]
+        # Get all existing categories from the database
+        from app.models.item import Item
+        existing_categories = db.session.query(db.distinct(Item.category)).all()
+        existing_categories = sorted([c[0] for c in existing_categories])
+        
+        # Get unique categories from mappings for display
+        mapped_categories = db.session.query(db.distinct(CategoryTaskMapping.category)).all()
+        mapped_categories = [c[0] for c in mapped_categories]
+        
+        # Get unmapped categories (categories that don't have a mapping yet)
+        unmapped_categories = [c for c in existing_categories if c not in mapped_categories]
         
         return render_template(
             'settings.html',
@@ -50,54 +66,85 @@ def settings():
             mappings=mappings,
             default_tasklist=default_tasklist,
             tasklists=tasklists,
-            categories=categories
+            categories=existing_categories,
+            unmapped_categories=unmapped_categories,
+            has_api_key=bool(api_key),
+            has_access_token=bool(access_token)
         )
     except Exception as e:
         current_app.logger.error(f"Error rendering settings page: {str(e)}")
         return render_template('error.html', message="Ett fel uppstod vid hämtning av inställningar.")
 
 
-@settings_bp.route('/settings/api_key', methods=['POST'])
-def set_api_key():
+@settings_bp.route('/settings/credentials', methods=['POST'])
+def set_credentials():
     """
-    Set Google Tasks API key.
+    Set Google Tasks API key and access token.
     
     Returns:
         JSON response or redirect
     """
     try:
-        # Get API key from request
+        # Get credentials from request
         api_key = request.form.get('api_key')
+        access_token = request.form.get('access_token')
         
-        if not api_key:
+        if not api_key or not access_token:
             return create_response(
                 success=False,
-                message='Ingen API-nyckel angiven',
+                message='Både API-nyckel och åtkomsttoken måste anges',
                 redirect_url=url_for('settings.settings')
             )
         
-        # Save the API key
+        # Save the credentials
         tasks_service = GoogleTasksService()
-        tasks_service.save_api_key(api_key)
+        tasks_service.save_credentials(api_key, access_token)
         
         if tasks_service.is_authenticated():
             return create_response(
                 success=True,
-                message='API-nyckel sparad',
+                message='Autentiseringsuppgifter sparade',
                 redirect_url=url_for('settings.settings')
             )
         else:
             return create_response(
                 success=False,
-                message=f'Misslyckades med att spara API-nyckel: {tasks_service.get_error()}',
+                message=f'Misslyckades med att spara autentiseringsuppgifter: {tasks_service.get_error()}',
                 redirect_url=url_for('settings.settings')
             )
     
     except Exception as e:
-        current_app.logger.error(f"Error in set_api_key: {str(e)}")
+        current_app.logger.error(f"Error in set_credentials: {str(e)}")
         return create_response(
             success=False,
-            message='Ett fel uppstod vid sparande av API-nyckel',
+            message='Ett fel uppstod vid sparande av autentiseringsuppgifter',
+            redirect_url=url_for('settings.settings')
+        )
+
+@settings_bp.route('/settings/remove_credentials', methods=['POST'])
+def remove_credentials():
+    """
+    Remove Google Tasks API credentials.
+    
+    Returns:
+        JSON response or redirect
+    """
+    try:
+        # Remove credentials
+        tasks_service = GoogleTasksService()
+        tasks_service.remove_credentials()
+        
+        return create_response(
+            success=True,
+            message='Autentiseringsuppgifter borttagna',
+            redirect_url=url_for('settings.settings')
+        )
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in remove_credentials: {str(e)}")
+        return create_response(
+            success=False,
+            message='Ett fel uppstod vid borttagning av autentiseringsuppgifter',
             redirect_url=url_for('settings.settings')
         )
 
