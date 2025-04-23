@@ -35,25 +35,24 @@
         {% endif %}
         
         <div class="auth-section">
-            <h3>Autentisering</h3>
+            <h3>API-nyckel</h3>
             
             <div class="auth-instructions">
                 <p>För att ansluta till Google Tasks:</p>
                 <ol>
                     <li>Skapa ett projekt i <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
                     <li>Aktivera Google Tasks API</li>
-                    <li>Skapa OAuth-inloggningsuppgifter</li>
-                    <li>Hämta JSON-token efter autentisering</li>
-                    <li>Klistra in token nedan</li>
+                    <li>Skapa en API-nyckel</li>
+                    <li>Klistra in API-nyckeln nedan</li>
                 </ol>
             </div>
             
-            <form id="auth-form" action="{{ url_for('settings.auth_google') }}" method="post">
+            <form id="api-key-form" action="{{ url_for('settings.set_api_key') }}" method="post">
                 <div class="form-group">
-                    <label for="token">OAuth Token (JSON):</label>
-                    <textarea name="token" id="token" rows="6" placeholder='{"token": "...","refresh_token": "...","token_uri": "...","client_id": "...","client_secret": "...","scopes": ["..."]}' class="input-textarea"></textarea>
+                    <label for="api_key">Google Tasks API-nyckel:</label>
+                    <input type="text" name="api_key" id="api_key" placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J..." class="input-text">
                 </div>
-                <button type="submit" class="btn">Anslut till Google Tasks</button>
+                <button type="submit" class="btn">Spara API-nyckel</button>
             </form>
         </div>
         
@@ -165,7 +164,7 @@
             });
             
             // Handle form submission with AJAX
-            $('#auth-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
+            $('#api-key-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
                 e.preventDefault();
                 const form = $(this);
                 

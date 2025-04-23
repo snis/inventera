@@ -28,13 +28,13 @@ python migrate_db.py
 
 This will add the necessary tables and columns for Google Tasks integration.
 
-### 3. Enable Google Tasks API
+### 3. Get Google Tasks API Key
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
 3. Enable the Google Tasks API for your project
-4. Create OAuth 2.0 credentials
-5. Configure the consent screen
+4. Create an API key (not OAuth credentials)
+5. Set appropriate API key restrictions for security
 
 ### 4. Access the Settings Page
 
@@ -46,8 +46,8 @@ The settings page is hidden by default to prevent unauthorized access. To access
 ### 5. Configure Google Tasks Integration
 
 1. Open the settings page
-2. Paste your OAuth token in JSON format in the text area
-3. Click "Anslut till Google Tasks" to authenticate
+2. Paste your API key in the text field
+3. Click "Spara API-nyckel" to save the key
 4. Set up a default task list for uncategorized items
 5. Create mappings between inventory categories and specific task lists
 
@@ -86,13 +86,13 @@ If you've set up the cron job, the system will automatically:
 
 ## Security Notes
 
-- The OAuth token is stored in `instance/google_token.json` and is excluded from git
-- The token is also stored in the database for backup purposes
+- The API key is stored in the database
 - Access to the settings page requires knowledge of the URL parameter
+- Consider setting appropriate restrictions on your API key in Google Cloud Console
 
 ## Troubleshooting
 
 - If integration fails, check the logs for error messages
 - Ensure Google Tasks API is enabled for your project
-- Verify your OAuth token has the correct scopes (`https://www.googleapis.com/auth/tasks`)
-- Check that the token has not expired (refresh tokens should handle this automatically)
+- Verify your API key has the necessary permissions
+- Check API key restrictions to ensure they allow access to the Tasks API

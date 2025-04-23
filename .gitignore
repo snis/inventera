@@ -2,8 +2,8 @@
 instance/db.sqlite3
 # Include test databases in tests/data/
 
-# Google Tasks authentication tokens
-instance/google_token.json
+# No need to exclude any files for Google Tasks integration now
+# API key is stored in the database
 
 # Python cache files
 __pycache__/

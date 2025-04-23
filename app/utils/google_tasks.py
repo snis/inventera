@@ -1,8 +1,9 @@
 """
-Google Tasks API utilities for the inventory application.
+Google Tasks API utilities for the inventory application using API key authentication.
 """
 import os
 import json
+import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from flask import current_app
@@ -10,99 +11,99 @@ from app.models.item import Item
 from app.models.settings import Settings, CategoryTaskMapping
 from app import db
 
-# Import Google API client library
-try:
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
-    from googleapiclient.errors import HttpError
-    GOOGLE_API_AVAILABLE = True
-except ImportError:
-    GOOGLE_API_AVAILABLE = False
+# Base URL for Google Tasks API
+API_BASE_URL = "https://tasks.googleapis.com/tasks/v1"
 
-
-class GoogleTasksService:
+class SimpleGoogleTasksService:
     """
-    Service for interacting with Google Tasks API.
+    Simple service for interacting with Google Tasks API using API key authentication.
     """
-    # Path to store token (excluded from git)
-    TOKEN_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
-                              'instance', 'google_token.json')
-    # Scopes needed for Google Tasks API
-    SCOPES = ['https://www.googleapis.com/auth/tasks']
-    
     def __init__(self):
         """Initialize Google Tasks service."""
-        self.service = None
+        self.api_key = None
         self.authenticated = False
         self.error_message = ""
         
-        # Check if prerequisites are met
-        if not GOOGLE_API_AVAILABLE:
-            self.error_message = "Google API client libraries not installed. Run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib"
-            return
-        
-        # Try to load credentials
-        self._load_credentials()
+        # Try to load API key
+        self._load_api_key()
     
-    def _load_credentials(self) -> None:
-        """Load credentials from token file or settings."""
+    def _load_api_key(self) -> None:
+        """Load API key from settings."""
         try:
-            # First try to load from file
-            if os.path.exists(self.TOKEN_FILE):
-                creds = Credentials.from_authorized_user_info(
-                    json.load(open(self.TOKEN_FILE, 'r')),
-                    self.SCOPES
-                )
-            else:
-                # Try to load from database
-                token_json = Settings.get('google_token')
-                if token_json:
-                    creds = Credentials.from_authorized_user_info(
-                        json.loads(token_json),
-                        self.SCOPES
-                    )
-                else:
-                    self.error_message = "No stored credentials found. Please authenticate first."
-                    return
-            
-            # Check if credentials are valid
-            if creds and creds.valid:
-                self.service = build('tasks', 'v1', credentials=creds)
+            # Try to load from database
+            api_key = Settings.get('google_api_key')
+            if api_key:
+                self.api_key = api_key
                 self.authenticated = True
             else:
-                self.error_message = "Stored credentials are invalid or expired. Please re-authenticate."
+                self.error_message = "No API key found. Please set one first."
         except Exception as e:
-            self.error_message = f"Error loading credentials: {str(e)}"
+            self.error_message = f"Error loading API key: {str(e)}"
     
-    def save_credentials(self, token_info: Dict) -> None:
+    def save_api_key(self, api_key: str) -> None:
         """
-        Save credentials to both file and database.
+        Save API key to database.
         
         Args:
-            token_info: The token information to save
+            api_key: The API key to save
         """
         try:
-            # Save to file
-            os.makedirs(os.path.dirname(self.TOKEN_FILE), exist_ok=True)
-            with open(self.TOKEN_FILE, 'w') as token_file:
-                json.dump(token_info, token_file)
-            
             # Save to database
-            Settings.set('google_token', json.dumps(token_info))
+            Settings.set('google_api_key', api_key)
             
-            # Re-initialize with new credentials
-            self._load_credentials()
+            # Re-initialize with new API key
+            self._load_api_key()
         except Exception as e:
-            current_app.logger.error(f"Error saving credentials: {str(e)}")
-            self.error_message = f"Error saving credentials: {str(e)}"
+            current_app.logger.error(f"Error saving API key: {str(e)}")
+            self.error_message = f"Error saving API key: {str(e)}"
     
     def is_authenticated(self) -> bool:
-        """Check if the service is authenticated."""
+        """Check if the service has an API key."""
         return self.authenticated
     
     def get_error(self) -> str:
         """Get the current error message."""
         return self.error_message
+    
+    def _make_request(self, method: str, endpoint: str, data: Dict = None) -> Optional[Dict]:
+        """
+        Make an authenticated request to the Tasks API.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
+            endpoint: API endpoint (without base URL)
+            data: Request data (for POST/PUT)
+            
+        Returns:
+            Response JSON or None if error
+        """
+        if not self.authenticated:
+            return None
+        
+        url = f"{API_BASE_URL}{endpoint}?key={self.api_key}"
+        
+        try:
+            if method == "GET":
+                response = requests.get(url)
+            elif method == "POST":
+                response = requests.post(url, json=data)
+            elif method == "PUT":
+                response = requests.put(url, json=data)
+            elif method == "DELETE":
+                response = requests.delete(url)
+            else:
+                self.error_message = f"Invalid request method: {method}"
+                return None
+            
+            response.raise_for_status()  # Raise exception for HTTP errors
+            
+            # Return JSON response or empty dict if no content
+            return response.json() if response.content else {}
+            
+        except requests.exceptions.RequestException as e:
+            self.error_message = f"API request error: {str(e)}"
+            current_app.logger.error(f"API request error: {str(e)}")
+            return None
     
     def get_tasklists(self) -> List[Dict]:
         """
@@ -115,8 +116,11 @@ class GoogleTasksService:
             return []
         
         try:
-            results = self.service.tasklists().list().execute()
-            lists = results.get('items', [])
+            response = self._make_request("GET", "/users/@me/lists")
+            if not response:
+                return []
+            
+            lists = response.get('items', [])
             return [{'id': task_list['id'], 'title': task_list['title']} for task_list in lists]
         except Exception as e:
             current_app.logger.error(f"Error fetching task lists: {str(e)}")
@@ -139,18 +143,17 @@ class GoogleTasksService:
             return None
         
         try:
-            task = {
+            task_data = {
                 'title': title,
                 'notes': notes,
                 'status': 'needsAction'
             }
             
-            result = self.service.tasks().insert(
-                tasklist=tasklist_id,
-                body=task
-            ).execute()
+            response = self._make_request("POST", f"/lists/{tasklist_id}/tasks", task_data)
+            if not response:
+                return None
             
-            return result.get('id')
+            return response.get('id')
         except Exception as e:
             current_app.logger.error(f"Error adding task: {str(e)}")
             self.error_message = f"Error adding task: {str(e)}"
@@ -178,27 +181,26 @@ class GoogleTasksService:
         
         try:
             # First get the existing task
-            task = self.service.tasks().get(
-                tasklist=tasklist_id,
-                task=task_id
-            ).execute()
+            existing_task = self._make_request("GET", f"/lists/{tasklist_id}/tasks/{task_id}")
+            if not existing_task:
+                return False
             
             # Update fields that were provided
+            update_data = {}
             if title is not None:
-                task['title'] = title
+                update_data['title'] = title
             if notes is not None:
-                task['notes'] = notes
+                update_data['notes'] = notes
             if status is not None:
-                task['status'] = status
+                update_data['status'] = status
+            
+            # Merge with existing task data
+            task_data = {**existing_task, **update_data}
             
             # Update the task
-            self.service.tasks().update(
-                tasklist=tasklist_id,
-                task=task_id,
-                body=task
-            ).execute()
+            response = self._make_request("PUT", f"/lists/{tasklist_id}/tasks/{task_id}", task_data)
+            return response is not None
             
-            return True
         except Exception as e:
             current_app.logger.error(f"Error updating task: {str(e)}")
             self.error_message = f"Error updating task: {str(e)}"
@@ -218,12 +220,19 @@ class GoogleTasksService:
             return []
         
         try:
-            results = self.service.tasks().list(tasklist=tasklist_id).execute()
-            return results.get('items', [])
+            response = self._make_request("GET", f"/lists/{tasklist_id}/tasks")
+            if not response:
+                return []
+            
+            return response.get('items', [])
         except Exception as e:
             current_app.logger.error(f"Error fetching tasks: {str(e)}")
             self.error_message = f"Error fetching tasks: {str(e)}"
             return []
+
+
+# For backward compatibility, use the same class name
+GoogleTasksService = SimpleGoogleTasksService
 
 
 def sync_low_inventory_items() -> Tuple[int, List[str]]:

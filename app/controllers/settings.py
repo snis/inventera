@@ -57,57 +57,47 @@ def settings():
         return render_template('error.html', message="Ett fel uppstod vid hämtning av inställningar.")
 
 
-@settings_bp.route('/settings/auth', methods=['POST'])
-def auth_google():
+@settings_bp.route('/settings/api_key', methods=['POST'])
+def set_api_key():
     """
-    Handle Google authentication token.
+    Set Google Tasks API key.
     
     Returns:
         JSON response or redirect
     """
     try:
-        # Get token from request
-        token_json = request.form.get('token')
+        # Get API key from request
+        api_key = request.form.get('api_key')
         
-        if not token_json:
+        if not api_key:
             return create_response(
                 success=False,
-                message='Ingen token angiven',
+                message='Ingen API-nyckel angiven',
                 redirect_url=url_for('settings.settings')
             )
         
-        # Parse token
-        try:
-            token_data = json.loads(token_json)
-        except json.JSONDecodeError:
-            return create_response(
-                success=False,
-                message='Ogiltig token-format (inte JSON)',
-                redirect_url=url_for('settings.settings')
-            )
-        
-        # Create a new service and save the token
+        # Save the API key
         tasks_service = GoogleTasksService()
-        tasks_service.save_credentials(token_data)
+        tasks_service.save_api_key(api_key)
         
         if tasks_service.is_authenticated():
             return create_response(
                 success=True,
-                message='Autentisering lyckades',
+                message='API-nyckel sparad',
                 redirect_url=url_for('settings.settings')
             )
         else:
             return create_response(
                 success=False,
-                message=f'Autentisering misslyckades: {tasks_service.get_error()}',
+                message=f'Misslyckades med att spara API-nyckel: {tasks_service.get_error()}',
                 redirect_url=url_for('settings.settings')
             )
     
     except Exception as e:
-        current_app.logger.error(f"Error in auth_google: {str(e)}")
+        current_app.logger.error(f"Error in set_api_key: {str(e)}")
         return create_response(
             success=False,
-            message='Ett fel uppstod vid autentisering',
+            message='Ett fel uppstod vid sparande av API-nyckel',
             redirect_url=url_for('settings.settings')
         )
 
