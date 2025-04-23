@@ -1,6 +1,14 @@
-# Only exclude production databases
-instance/db.sqlite3
-# Include test databases in tests/data/
+# Exclude all database files except test databases
+*.sqlite3
+!tests/data/*.sqlite3
+
+# Exclude instance directory containing sensitive data
+instance/*
+!instance/README.md
+
+# Exclude Google Tasks API tokens and credentials
+*google_token.json
+*token.pickle
 
 # Python cache files
 __pycache__/
