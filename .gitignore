@@ -1,4 +1,32 @@
-instance/db.sqlite3
-db.sqlite3
+# Exclude all database files except test databases
+*.sqlite3
+!tests/data/*.sqlite3
+
+# Exclude instance directory containing sensitive data
+instance/*
+!instance/README.md
+
+# Exclude Google Tasks API tokens and credentials
+*google_token.json
+*token.pickle
+
+# Python cache files
 __pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
 venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
