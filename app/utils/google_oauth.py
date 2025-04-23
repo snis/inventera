@@ -10,9 +10,17 @@ import requests
 import logging
 from app.models.settings import Settings
 
-# For development only - this allows OAuth to work without HTTPS
-# WARNING: This should be removed in production
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# Configure OAuth transport security based on environment
+# In production, HTTPS is required for OAuth to work securely
+# In development, we allow HTTP for easier local testing
+
+# Only allow insecure transport in development mode
+if os.environ.get('FLASK_ENV') == 'development' or os.environ.get('INVENTERA_DEV_MODE') == '1':
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    print("WARNING: OAUTHLIB_INSECURE_TRANSPORT is enabled for development")
+else:
+    # Make sure it's not set in production
+    os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
 logging.getLogger('google_oauth').setLevel(logging.DEBUG)
 
 # Google OAuth2 endpoint information

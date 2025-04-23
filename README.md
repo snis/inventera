@@ -10,6 +10,7 @@ Inventera is a simple and effective inventory management web application built w
 - Visual color-coding for inventory status (red for below alert level, yellow for unchecked items)
 - One-click quantity updates
 - Categorized inventory organization
+- Google Tasks integration for creating shopping lists from low inventory items
 - Mobile-responsive design
 - Simple, intuitive interface
 - SQLite database for easy deployment
@@ -42,6 +43,13 @@ Inventera is a simple and effective inventory management web application built w
 
 4. Run the application:
    ```
+   # For development mode with Google Tasks integration
+   FLASK_ENV=development python run.py
+   
+   # OR set the dev mode flag
+   INVENTERA_DEV_MODE=1 python run.py
+   
+   # For production mode (requires HTTPS for OAuth)
    python run.py
    ```
 
@@ -127,6 +135,53 @@ inventera/
 
 ![Home Screen](screenshots/index.png)
 ![Inventory Screen](screenshots/inventory.png)
+
+## Google Tasks Integration
+
+The application includes integration with Google Tasks to create shopping lists from low inventory items.
+
+### Setup
+
+1. Access the settings page by adding `?admin=true` to the URL (e.g., `http://localhost:5000/?admin=true`)
+2. Follow the instructions to:
+   - Create a Google Cloud project
+   - Enable the Google Tasks API
+   - Configure OAuth consent screen
+   - Create OAuth 2.0 credentials
+   - Enter the credentials in the settings page
+
+### Security
+
+The Google Tasks integration stores sensitive information:
+- OAuth client credentials (client ID and secret)
+- OAuth access and refresh tokens
+
+These are stored in:
+1. The SQLite database (`Settings` table)
+2. A token file in the `instance` directory
+
+For security:
+- The `.gitignore` file is configured to exclude database files and token files
+- Never commit the `db.sqlite3` file or the `instance` directory to GitHub
+- In production, always use HTTPS
+- The application automatically requires HTTPS in production
+- For local development, use `FLASK_ENV=development` or `INVENTERA_DEV_MODE=1`
+
+### Development vs Production
+
+For **local development**:
+```bash
+# Enable insecure transport for OAuth testing locally
+FLASK_ENV=development python run.py
+# or
+INVENTERA_DEV_MODE=1 python run.py
+```
+
+For **production**:
+```bash
+# Standard launch (requires HTTPS for OAuth)
+python run.py
+```
 
 ## License
 
