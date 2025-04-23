@@ -47,9 +47,11 @@ def create_app(test_config=None):
     # Register blueprints
     from app.controllers.main import main_bp
     from app.controllers.inventory import inventory_bp
+    from app.controllers.settings import settings_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(inventory_bp)
+    app.register_blueprint(settings_bp)
     
     # Create database tables if they don't exist
     with app.app_context():

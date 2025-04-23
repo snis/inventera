@@ -16,6 +16,10 @@
         <a href="{{ url_for('main.index') }}" class="active">Inventera</a>
         <a href="{{ url_for('inventory.inventory') }}">Hantera artiklar</a>
         <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
+        <!-- Hidden link to settings, visible only when adding '?admin=true' to the URL -->
+        {% if request.args.get('admin') == 'true' %}
+            <a href="{{ url_for('settings.settings') }}">Inställningar</a>
+        {% endif %}
     </div>
     <p>Kontrollera vad som finns kvar, inklusive <b>oöppnade</b> förpackningar (öppnade räknas inte) som är utställda, i text sovrum, dusch.</p>
 
@@ -62,10 +66,43 @@
     {% endfor %}
     
     {% include 'includes/pagination.html' %}
+    
+    <div class="action-buttons">
+        <form id="sync-tasks-form" action="{{ url_for('settings.sync_tasks') }}" method="post">
+            <button type="submit" id="sync-tasks-btn" class="btn btn-primary">Klar</button>
+        </form>
+    </div>
     </div>
 
     <script>
         $(document).ready(function() {
+            // Handle sync tasks button
+            $('#sync-tasks-form').submit(function(e) {
+                e.preventDefault();
+                
+                $('#sync-tasks-btn').text('Synkroniserar...').prop('disabled', true);
+                
+                $.ajax({
+                    type: 'POST',
+                    url: $(this).attr('action'),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        $('#sync-tasks-btn').text('Klar').prop('disabled', false);
+                        if (response.status === 'success' || response.status === 'partial') {
+                            alert(response.message || 'Uppgifter synkroniserade!');
+                        } else {
+                            alert(response.message || 'Ett fel uppstod vid synkronisering.');
+                        }
+                    },
+                    error: function(error) {
+                        $('#sync-tasks-btn').text('Klar').prop('disabled', false);
+                        console.error("Error syncing tasks:", error);
+                        alert('Ett fel uppstod vid synkronisering. Försök igen.');
+                    }
+                });
+            });
             // Skapa en debounced-version av updateItem-funktionen
             function debounce(func, wait) {
                 let timeout;

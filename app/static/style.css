@@ -570,3 +570,160 @@ button:hover {
     font-size: 0.85em;
   }
 }
+
+/* Settings page styles */
+.settings-section {
+  margin-top: 20px;
+}
+
+.alert {
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+.alert.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.alert.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.auth-section, .mappings-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+.auth-instructions {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: var(--dark-accent);
+}
+
+.input-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.input-text, .input-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.input-text:focus, .input-select:focus, .input-textarea:focus {
+  border-color: var(--basecolor);
+  box-shadow: 0 0 0 3px rgba(255, 128, 171, 0.25);
+  outline: none;
+}
+
+.btn {
+  padding: 8px 16px;
+  background-color: var(--button-success);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  display: inline-block;
+  text-align: center;
+  min-width: 100px;
+  height: auto;
+  width: auto;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  font-size: 0.9em;
+  min-width: 60px;
+}
+
+.btn-danger {
+  background-color: var(--button-delete);
+}
+
+.btn-primary {
+  background-color: var(--dark-accent);
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.settings-table th, .settings-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.settings-table th {
+  background-color: var(--table-header-bg);
+  color: var(--table-header-color);
+}
+
+.action-buttons {
+  margin: 20px 0;
+  text-align: center;
+}
+
+@media screen and (max-width: 768px) {
+  .auth-section, .mappings-section {
+    padding: 10px;
+  }
+  
+  .btn {
+    padding: 6px 12px;
+    font-size: 0.95em;
+    min-width: 80px;
+  }
+  
+  .input-textarea {
+    height: 120px;
+  }
+}

@@ -15,6 +15,10 @@
         <a href="{{ url_for('main.index') }}">Inventera</a>
         <a href="{{ url_for('inventory.inventory') }}" class="active">Hantera artiklar</a>
         <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
+        <!-- Hidden link to settings, visible only when adding '?admin=true' to the URL -->
+        {% if request.args.get('admin') == 'true' %}
+            <a href="{{ url_for('settings.settings') }}">Inställningar</a>
+        {% endif %}
     </div>
     
     {% include 'includes/pagination.html' %}
