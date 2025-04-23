@@ -39,8 +39,6 @@ This will add the necessary tables and columns for Google Tasks integration.
 7. Configure your OAuth consent screen and create credentials:
    - In Google Cloud Console, go to "OAuth consent screen" and configure it
    - In "Credentials", create an OAuth 2.0 Client ID for Web application
-   - Add `https://developers.google.com/oauthplayground` to the Authorized redirect URIs
-   - Save your changes
    
 8. To get an access token, use [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
    - Click the settings (gear) icon in the top right corner
@@ -50,6 +48,10 @@ This will add the necessary tables and columns for Google Tasks integration.
    - Scroll down and find "Google Tasks API v1"
    - Check "https://www.googleapis.com/auth/tasks"
    - Click "Authorize APIs" and sign in with your Google account
+   - When you get a "redirect_uri_mismatch" error, copy the URL that shows "would have been redirected to"
+   - Go to Google Cloud Console -> Credentials -> your OAuth 2.0 Client ID
+   - Add this URL under "Authorized redirect URIs" and save
+   - Go back to OAuth Playground and try again
    - Click "Exchange authorization code for tokens"
    - Copy the "Access token" (starts with "ya29.")
 

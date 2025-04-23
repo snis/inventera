@@ -46,14 +46,7 @@
                     <li>Aktivera Google Tasks API för projektet</li>
                     <li>Skapa en API-nyckel under "Credentials" (för identifiering)</li>
                     <li>Skapa OAuth 2.0-uppgifter (OAuth client ID) för webbapplikation</li>
-                    <li>För att få en åtkomsttoken, gör först följande i Google Cloud Console:
-                        <ul>
-                            <li>Gå till "Credentials" -> din OAuth 2.0 Client ID</li>
-                            <li>Under "Authorized redirect URIs", lägg till: <code>https://developers.google.com/oauthplayground</code></li>
-                            <li>Spara ändringarna</li>
-                        </ul>
-                    </li>
-                    <li>Sedan använd <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a>:
+                    <li>För att få en åtkomsttoken, använd <a href="https://developers.google.com/oauthplayground/" target="_blank">OAuth 2.0 Playground</a>:
                         <ul>
                             <li>Klicka på kugghjulet (inställningar) i övre högra hörnet</li>
                             <li>Markera "Use your own OAuth credentials"</li>
@@ -62,6 +55,10 @@
                             <li>Scrolla ner och hitta "Google Tasks API v1"</li>
                             <li>Markera "https://www.googleapis.com/auth/tasks"</li>
                             <li>Klicka på "Authorize APIs" och logga in med ditt Google-konto</li>
+                            <li>När du får "redirect_uri_mismatch" fel, kopiera den URL:en som visas som "skulle ha omdirigerats till"</li>
+                            <li>Gå till Google Cloud Console -> Credentials -> din OAuth 2.0 Client ID</li>
+                            <li>Lägg till denna URL under "Authorized redirect URIs" och spara</li>
+                            <li>Gå tillbaka till OAuth Playground och försök igen</li>
                             <li>Klicka på "Exchange authorization code for tokens"</li>
                             <li>Kopiera "Access token" (börjar med "ya29.")</li>
                         </ul>
