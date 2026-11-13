@@ -4,6 +4,7 @@ Main application package.
 """
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 
@@ -44,6 +45,15 @@ def create_app(test_config=None):
     
     # Initialize extensions with app
     db.init_app(app)
+
+    # Enable ProxyFix for reverse proxies (NPM, Traefik) and Home Assistant Ingress
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=1,
+        x_prefix=1
+    )
     
     # Register blueprints
     from app.controllers.main import main_bp
@@ -53,6 +63,26 @@ def create_app(test_config=None):
     app.register_blueprint(main_bp)
     app.register_blueprint(inventory_bp)
     app.register_blueprint(settings_bp)
+
+    # Register i18n and dynamic settings in template context
+    from app.utils.i18n import t, get_locale, get_translations_dict, SUPPORTED_LANGUAGES
+    from app.models.settings import Settings
+
+    @app.context_processor
+    def inject_globals():
+        lang = get_locale()
+        calendar_url = ''
+        try:
+            calendar_url = Settings.get('calendar_url', os.environ.get('CALENDAR_URL', ''))
+        except Exception:
+            calendar_url = os.environ.get('CALENDAR_URL', '')
+        return {
+            't': t,
+            'current_lang': lang,
+            'supported_languages': SUPPORTED_LANGUAGES,
+            'js_translations': get_translations_dict(lang),
+            'calendar_url': calendar_url
+        }
     
     # Create database tables if they don't exist
     with app.app_context():

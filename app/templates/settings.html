@@ -1,235 +1,170 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inställningar</title>
+    <title>{{ t('settings.title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="{{ url_for('static', filename='ha-theme.js') }}"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <div class=background_wrapper></div>
+    <div class="background_wrapper"></div>
     <div class="card">
-    <h1>Inställningar</h1>
-    <div class="navigation">
-        <a href="{{ url_for('main.index') }}">Inventera</a>
-        <a href="{{ url_for('inventory.inventory') }}">Hantera artiklar</a>
-        <a href="{{ url_for('settings.settings') }}" class="active">Inställningar</a>
-        <a href="https://ha.snis.nu/ass-ds/0">Kalender m.m</a>
-    </div>
-    
-    <div class="settings-section">
-        <h2>Google Tasks Integration</h2>
-        
-        {% if authenticated %}
-            <div class="alert success">
-                <p>✓ Ansluten till Google Tasks</p>
-            </div>
-        {% else %}
-            <div class="alert error">
-                <p>✗ Inte ansluten till Google Tasks</p>
-                {% if error_message %}
-                    <p>Felmeddelande: {{ error_message }}</p>
-                {% endif %}
+        <h1>{{ t('settings.title') }}</h1>
+        {% set active_page = 'settings' %}
+        {% include 'includes/nav.html' %}
+
+        {% if saved %}
+            <div class="all-stocked-banner" style="margin: 15px 0; padding: 12px;">
+                <i class="fa fa-check-circle"></i> {{ t('settings.settings_saved') }}
             </div>
         {% endif %}
-        
-        <!-- Show credentials form if not authenticated -->
-        {% if not authenticated %}
-        <div class="auth-section">
-            <h3>Google Tasks Autentisering</h3>
-            
-            <div class="auth-instructions">
-                <p>För att ansluta till Google Tasks:</p>
-                <ol>
-                    <li>Skapa ett projekt i <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
-                    <li>Aktivera Google Tasks API för projektet</li>
-                    <li>Gå till OAuth consent screen och konfigurera den (external är ok för testning)</li>
-                    <li>Lägg till scope "https://www.googleapis.com/auth/tasks" i OAuth consent screen</li>
-                    <li>Skapa en OAuth 2.0 Client ID för Web Application</li>
-                    <li>Under "Authorized redirect URIs", lägg till följande URL:</li>
-                    <li><code>{{ url_for('settings.auth_callback', _external=True) }}</code></li>
-                    <li>Kopiera Client ID och Client Secret och fyll i nedan</li>
-                </ol>
-            </div>
-            
-            <form id="client-credentials-form" action="{{ url_for('settings.set_client_credentials') }}" method="post">
-                <div class="form-group">
-                    <label for="client_id">Client ID:</label>
-                    <input type="text" name="client_id" id="client_id" placeholder="123456789-abcdef.apps.googleusercontent.com" class="input-text">
+
+        <form action="{{ url_for('settings.save_settings') }}" method="post">
+            <!-- Home Assistant Connection -->
+            <div class="store-group">
+                <h2><i class="fa fa-home"></i> {{ t('settings.ha_connection_heading') }}</h2>
+
+                {% if is_addon %}
+                    <p class="instruction-text" style="margin-bottom: 12px;">
+                        <i class="fa fa-check-circle" style="color: var(--ha-green);"></i>
+                        {{ t('settings.ha_supervisor_active') }}
+                    </p>
+                {% else %}
+                    <div style="display: grid; gap: 12px; margin: 12px 0;">
+                        <div>
+                            <label for="ha_url"><b>{{ t('settings.ha_url') }}</b></label><br>
+                            <input type="url" id="ha_url" name="ha_url" value="{{ ha_url }}" placeholder="http://homeassistant.local:8123" style="width: 100%; max-width: 500px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                        </div>
+                        <div>
+                            <label for="ha_token">
+                                <b>{{ t('settings.ha_token') }}</b>
+                                {% if has_token %}
+                                    <span style="color: var(--ha-green); font-size: 0.85em;">({{ t('settings.ha_token_saved') }})</span>
+                                {% endif %}
+                            </label><br>
+                            <input type="password" id="ha_token" name="ha_token" value="" placeholder="{{ t('settings.ha_token_placeholder') }}" style="width: 100%; max-width: 500px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+                    <button type="button" id="test-ha-btn" class="btn btn-toggle-all">
+                        <i class="fa fa-plug"></i> {{ t('settings.test_connection') }}
+                    </button>
+                    <span id="ha-test-status" style="font-weight: 600;">
+                        {% if connected %}
+                            <span style="color: var(--ha-green);"><i class="fa fa-check"></i> {{ conn_message }}</span>
+                        {% elif conn_message %}
+                            <span style="color: var(--ha-red);"><i class="fa fa-times"></i> {{ conn_message }}</span>
+                        {% endif %}
+                    </span>
                 </div>
-                <div class="form-group">
-                    <label for="client_secret">Client Secret:</label>
-                    <input type="text" name="client_secret" id="client_secret" placeholder="GOCSPX-xxxxxxx" class="input-text">
-                </div>
-                <button type="submit" class="btn">Spara Client Credentials</button>
-            </form>
-            
-            <div class="oauth-section">
-                <h3>Autentisera med Google</h3>
-                <p>Efter att du sparat dina Client Credentials, klicka på knappen nedan för att autentisera med Google:</p>
-                <a href="{{ url_for('settings.auth_google') }}" class="btn">Logga in med Google</a>
             </div>
-        </div>
-        {% else %}
-        <!-- Show remove credentials option if authenticated -->
-        <div class="auth-section">
-            <h3>Autentiseringsuppgifter</h3>
-            <p>Du är ansluten till Google Tasks med dina autentiseringsuppgifter.</p>
-            <form id="remove-credentials-form" action="{{ url_for('settings.remove_credentials') }}" method="post">
-                <button type="submit" class="btn btn-danger">Ta bort autentiseringsuppgifter</button>
-            </form>
-        </div>
-        
-        <div class="mappings-section">
-            <h3>Kategori till Uppgiftslista Mappningar</h3>
-            
-            <!-- Current mappings -->
-            {% if mappings %}
-                <table class="settings-table">
+
+            <!-- Dynamic Store -> Todo.* Mapping -->
+            <div class="store-group">
+                <h2><i class="fa fa-list-ul"></i> {{ t('settings.todo_mapping_heading') }}</h2>
+                <p class="instruction-text" style="margin-bottom: 12px;">{{ t('settings.todo_mapping_desc') }}</p>
+
+                {% if not todo_entities %}
+                    <p style="color: var(--ha-orange); font-weight: 600;">{{ t('settings.no_lists_found') }}</p>
+                {% endif %}
+
+                <table class="shopping-table">
                     <thead>
                         <tr>
-                            <th>Kategori</th>
-                            <th>Uppgiftslista</th>
-                            <th>Åtgärd</th>
+                            <th>{{ t('settings.store_col') }}</th>
+                            <th>{{ t('settings.todo_list_col') }}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for mapping in mappings %}
+                        <tr>
+                            <td><b>{{ t('settings.default_store_label') }}</b></td>
+                            <td>
+                                <select name="ha_default_todo_entity" class="todo-select" style="width: 100%; max-width: 380px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                                    <option value="">{{ t('settings.select_list') }}</option>
+                                    {% for ent in todo_entities %}
+                                        <option value="{{ ent.entity_id }}" {% if default_todo_entity == ent.entity_id %}selected{% endif %}>
+                                            {{ ent.name }} ({{ ent.entity_id }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% for store in stores %}
                             <tr>
-                                <td>{{ mapping.category }}</td>
-                                <td>{{ mapping.tasklist_name }}</td>
+                                <td>{{ store }}</td>
                                 <td>
-                                    <form action="{{ url_for('settings.delete_mapping', mapping_id=mapping.id) }}" method="post" class="delete-mapping-form">
-                                        <button type="submit" class="btn-small btn-danger">Ta bort</button>
-                                    </form>
+                                    <select name="store_map_{{ store }}" class="todo-select" style="width: 100%; max-width: 380px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                                        <option value="">{{ t('settings.select_list') }}</option>
+                                        {% for ent in todo_entities %}
+                                            <option value="{{ ent.entity_id }}" {% if store_todo_map.get(store) == ent.entity_id %}selected{% endif %}>
+                                                {{ ent.name }} ({{ ent.entity_id }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
                                 </td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            {% else %}
-                <p>Inga mappningar konfigurerade.</p>
-            {% endif %}
-            
-            {% if tasklists %}
-                <!-- Add new mapping -->
-                <h4>Lägg till ny mappning</h4>
-                
-                <form id="mapping-form" action="{{ url_for('settings.update_mapping') }}" method="post">
-                    <div class="form-group">
-                        <label for="category">Kategori:</label>
-                        <select name="category" id="category" required class="input-select">
-                            <option value="">Välj kategori...</option>
-                            {% for category in unmapped_categories %}
-                                <option value="{{ category }}">{{ category }}</option>
-                            {% endfor %}
-                            {% if not unmapped_categories %}
-                                {% for category in categories %}
-                                    <option value="{{ category }}">{{ category }} (redan mappat)</option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="tasklist_select">Uppgiftslista:</label>
-                        <select name="tasklist_select" id="tasklist_select" class="input-select">
-                            <option value="">Välj uppgiftslista...</option>
-                            {% for tasklist in tasklists %}
-                                <option value="{{ tasklist.id }}" data-name="{{ tasklist.title }}">{{ tasklist.title }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="tasklist_id" id="tasklist_id">
-                        <input type="hidden" name="tasklist_name" id="tasklist_name">
-                    </div>
-                    
-                    <button type="submit" class="btn">Spara mappning</button>
-                </form>
-            {% endif %}
-            
-            <!-- Set default task list -->
-            <h3>Standarduppgiftslista</h3>
-            
-            {% if default_tasklist %}
-                <p>Nuvarande standarduppgiftslista: <strong>{{ default_tasklist.tasklist_name }}</strong></p>
-            {% else %}
-                <p>Ingen standarduppgiftslista inställd.</p>
-            {% endif %}
-            
-            {% if tasklists %}
-                <form id="default-form" action="{{ url_for('settings.set_default') }}" method="post">
-                    <div class="form-group">
-                        <label for="default_tasklist_select">Välj standarduppgiftslista:</label>
-                        <select name="default_tasklist_select" id="default_tasklist_select" class="input-select">
-                            <option value="">Välj uppgiftslista...</option>
-                            {% for tasklist in tasklists %}
-                                <option value="{{ tasklist.id }}" data-name="{{ tasklist.title }}">{{ tasklist.title }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="tasklist_id" id="default_tasklist_id">
-                        <input type="hidden" name="tasklist_name" id="default_tasklist_name">
-                    </div>
-                    
-                    <button type="submit" class="btn">Spara som standard</button>
-                </form>
-            {% else %}
-                <div class="alert error">
-                    <p>Kunde inte hämta dina uppgiftslistor. Kontrollera att dina autentiseringsuppgifter är korrekta.</p>
+            </div>
+
+            <!-- General Settings -->
+            <div class="store-group">
+                <h2><i class="fa fa-sliders"></i> {{ t('settings.general_heading') }}</h2>
+                <div style="margin: 10px 0;">
+                    <label for="calendar_url"><b>{{ t('settings.calendar_url') }}</b></label><br>
+                    <input type="url" id="calendar_url" name="calendar_url" value="{{ calendar_url }}" placeholder="{{ t('settings.calendar_url_placeholder') }}" style="width: 100%; max-width: 500px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
                 </div>
-            {% endif %}
-        </div>
-        {% endif %}
+            </div>
+
+            <div class="action-buttons-bottom">
+                <button type="submit" class="btn btn-primary btn-large-sync">
+                    <i class="fa fa-save"></i> {{ t('settings.save_settings') }}
+                </button>
+            </div>
+        </form>
     </div>
-    </div>
-    
+
     <script>
         $(document).ready(function() {
-            // Handle tasklist selection for mapping
-            $('#tasklist_select').change(function() {
-                const selectedOption = $(this).find('option:selected');
-                const tasklistId = selectedOption.val();
-                const tasklistName = selectedOption.data('name');
-                
-                $('#tasklist_id').val(tasklistId);
-                $('#tasklist_name').val(tasklistName);
-            });
-            
-            // Handle tasklist selection for default
-            $('#default_tasklist_select').change(function() {
-                const selectedOption = $(this).find('option:selected');
-                const tasklistId = selectedOption.val();
-                const tasklistName = selectedOption.data('name');
-                
-                $('#default_tasklist_id').val(tasklistId);
-                $('#default_tasklist_name').val(tasklistName);
-            });
-            
-            // Handle form submission with AJAX
-            $('#client-credentials-form, #remove-credentials-form, #mapping-form, #default-form, .delete-mapping-form').submit(function(e) {
-                e.preventDefault();
-                const form = $(this);
-                
-                $.ajax({
-                    type: 'POST',
-                    url: form.attr('action'),
-                    data: form.serialize(),
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    success: function(response) {
-                        if (response.status === 'success' || response.success) {
-                            alert(response.message || 'Åtgärden lyckades!');
-                            // Reload page to show changes
-                            location.reload();
-                        } else {
-                            alert(response.message || 'Ett fel uppstod.');
+            $('#test-ha-btn').click(function() {
+                const btn = $(this);
+                const statusEl = $('#ha-test-status');
+                btn.prop('disabled', true);
+                statusEl.text('...');
+
+                $.post("{{ url_for('settings.test_ha') }}", {
+                    ha_url: $('#ha_url').val() || '',
+                    ha_token: $('#ha_token').val() || ''
+                }, function(resp) {
+                    btn.prop('disabled', false);
+                    if (resp.status === 'success') {
+                        statusEl.html('<span style="color: var(--ha-green);"><i class="fa fa-check"></i> ' + resp.message + ' (' + resp.todo_entities.length + ')</span>');
+                        // Dynamically populate all dropdowns with discovered todo.* entities
+                        if (resp.todo_entities && resp.todo_entities.length > 0) {
+                            $('.todo-select').each(function() {
+                                const select = $(this);
+                                const currentVal = select.val();
+                                const firstOpt = select.find('option:first').clone();
+                                select.empty().append(firstOpt);
+                                resp.todo_entities.forEach(function(ent) {
+                                    const opt = $('<option></option>').val(ent.entity_id).text(ent.name + ' (' + ent.entity_id + ')');
+                                    if (ent.entity_id === currentVal) opt.prop('selected', true);
+                                    select.append(opt);
+                                });
+                            });
                         }
-                    },
-                    error: function(error) {
-                        console.error("Error:", error);
-                        alert('Ett fel uppstod. Försök igen.');
+                    } else {
+                        statusEl.html('<span style="color: var(--ha-red);"><i class="fa fa-times"></i> ' + resp.message + '</span>');
                     }
+                }).fail(function() {
+                    btn.prop('disabled', false);
+                    statusEl.html('<span style="color: var(--ha-red);"><i class="fa fa-times"></i> Error</span>');
                 });
             });
         });

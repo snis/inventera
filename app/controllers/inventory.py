@@ -8,11 +8,52 @@ from typing import Dict, Any
 
 from app import db
 from app.models.item import Item
-from app.utils.helpers import get_items_by_category, get_row_color, get_warning_color
+from app.utils.helpers import (
+    get_items_by_category,
+    get_items_by_location,
+    get_low_stock_by_store,
+    get_distinct_field_values,
+    get_row_color,
+    get_warning_color
+)
 from app.utils.responses import create_response, is_ajax_request
+from app.utils.ha_todo import sync_low_inventory_to_ha
+from app.utils.i18n import t
 
 # Create blueprint
 inventory_bp = Blueprint('inventory', __name__)
+
+
+@inventory_bp.route('/shopping')
+def shopping():
+    """
+    Render shopping list view grouped by store/supplier for all items needing restock.
+    """
+    try:
+        low_stock = get_low_stock_by_store()
+        return render_template(
+            'shopping.html',
+            low_stock_by_store=low_stock
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error rendering shopping list: {str(e)}")
+        return render_template('error.html', message="Ett fel uppstod vid hämtning av inköpslistor.")
+
+
+@inventory_bp.route('/sync_ha', methods=['POST'])
+def sync_ha():
+    """
+    Sync all items below safety threshold to Home Assistant Todo lists.
+    """
+    try:
+        result = sync_low_inventory_to_ha()
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Error syncing to Home Assistant: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f"Ett fel uppstod: {str(e)}"
+        }), 500
 
 
 @inventory_bp.route('/update_quantity', methods=['POST'])
@@ -34,7 +75,7 @@ def update_quantity():
             current_app.logger.warning(f"Invalid quantity: item_id: {item_id}, new_quantity: {new_quantity}")
             return create_response(
                 success=False,
-                message='Antal måste vara ett positivt heltal',
+                message=t('api.invalid_quantity'),
                 redirect_url=url_for('main.index')
             )
 
@@ -44,7 +85,7 @@ def update_quantity():
             current_app.logger.warning(f"Item not found: {item_id}")
             return create_response(
                 success=False,
-                message='Artikel hittades inte',
+                message=t('api.item_not_found'),
                 redirect_url=url_for('main.index')
             )
         
@@ -105,6 +146,9 @@ def inventory(page: int = 1):
         return render_template(
             'inventory.html',
             items_by_category=items_by_category,
+            distinct_locations=get_distinct_field_values('location'),
+            distinct_stores=get_distinct_field_values('store'),
+            distinct_categories=get_distinct_field_values('category'),
             get_row_color=get_row_color,
             get_warning_color=get_warning_color,
             pagination={
@@ -151,6 +195,10 @@ def update_items():
                     
                     item.unit = request.form.get(f'unit_{item_id}')
                     item.category = request.form.get(f'category_{item_id}')
+                    if request.form.get(f'location_{item_id}'):
+                        item.location = request.form.get(f'location_{item_id}')
+                    if request.form.get(f'store_{item_id}'):
+                        item.store = request.form.get(f'store_{item_id}')
                     item.last_checked = datetime.now()
         
                     # AJAX response if requested
@@ -172,12 +220,14 @@ def update_items():
             new_alert_quantity_str = request.form.get('new_alert_quantity')
             new_unit = request.form.get('new_unit')
             new_category = request.form.get('new_category')
+            new_location = (request.form.get('new_location') or '').strip() or t('common.other')
+            new_store = (request.form.get('new_store') or '').strip() or t('common.other')
             
             # Validate inputs
             if not new_name or not new_unit or not new_category:
                 return create_response(
                     success=False,
-                    message='Alla fält måste fyllas i',
+                    message=t('api.missing_fields'),
                     redirect_url=url_for('inventory.inventory')
                 )
             
@@ -198,6 +248,8 @@ def update_items():
                 alert_quantity=new_alert_quantity,
                 unit=new_unit, 
                 category=new_category,
+                location=new_location,
+                store=new_store,
                 last_checked=datetime.now()
             )
             db.session.add(new_item)

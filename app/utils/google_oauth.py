@@ -5,7 +5,10 @@ import os
 import json
 from typing import Dict, Optional, Any
 from flask import current_app, redirect, url_for, session, request
-from oauthlib.oauth2 import WebApplicationClient
+try:
+    from oauthlib.oauth2 import WebApplicationClient
+except ImportError:
+    WebApplicationClient = None
 import requests
 import logging
 from app.models.settings import Settings

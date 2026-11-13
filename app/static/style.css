@@ -1,25 +1,66 @@
 :root {
-  --basecolor: #FF80AB;
-  --dark-accent: #C2185B;
-  --light-accent: #FFBCD8;
-  --text-color: #333;
-  --button-success: #7CB342;
-  --button-delete: #F44336;
-  --warning-color: #FF9800;
-  --success-light: #DCEDC8;
-  --warning-light: #FFCCBC;
-  --card-bg: rgba(255, 255, 255, 0.65);
-  --table-even: rgba(255, 236, 245, 0.8);
-  --table-odd: rgba(255, 255, 255, 0.7);
+  /* Home Assistant Theme Bridge with standalone fallbacks */
+  --ha-primary: var(--primary-color, #FF80AB);
+  --ha-dark: var(--dark-primary-color, #C2185B);
+  --ha-accent: var(--accent-color, #FFBCD8);
+  --ha-card-bg: var(--card-background-color, rgba(255, 255, 255, 0.75));
+  --ha-text: var(--primary-text-color, #333333);
+  --ha-secondary-text: var(--secondary-text-color, #555555);
+  --ha-divider: var(--divider-color, rgba(0, 0, 0, 0.12));
+
+  /* Semantic / State Colors from Home Assistant (På / Varning / Av) */
+  --ha-green: var(--state-on-color, var(--success-color, var(--green-color, var(--label-badge-green, #4CAF50))));
+  --ha-orange: var(--warning-color, var(--orange-color, var(--amber-color, var(--label-badge-yellow, #FF9800))));
+  --ha-darkorange: var(--deep-orange-color, var(--warning-color, #FB8C00));
+  --ha-red: var(--state-off-color, var(--error-color, var(--red-color, var(--state-inactive-color, var(--label-badge-red, #F44336)))));
+  --ha-grey: var(--disabled-text-color, var(--state-inactive-color, #9E9E9E));
+
+  /* Tinted row colors that preserve text contrast in light & dark themes */
+  --inv-green: color-mix(in srgb, var(--ha-green) 42%, transparent);
+  --inv-orange: color-mix(in srgb, var(--ha-orange) 42%, transparent);
+  --inv-darkorange: color-mix(in srgb, var(--ha-darkorange) 48%, transparent);
+  --inv-red: color-mix(in srgb, var(--ha-red) 42%, transparent);
+  --inv-grey: color-mix(in srgb, var(--ha-grey) 28%, transparent);
+
+  --basecolor: var(--ha-primary);
+  --dark-accent: var(--ha-dark);
+  --light-accent: var(--ha-accent);
+  --text-color: var(--ha-text);
+  --button-success: var(--ha-green);
+  --button-delete: var(--ha-red);
+  --warning-color: var(--ha-orange);
+  --success-light: color-mix(in srgb, var(--ha-green) 22%, transparent);
+  --warning-light: color-mix(in srgb, var(--ha-orange) 22%, transparent);
+  --card-bg: var(--ha-card-bg);
+  --table-even: rgba(128, 128, 128, 0.05);
+  --table-odd: rgba(128, 128, 128, 0.02);
   --table-header-bg: var(--dark-accent);
-  --table-header-color: white;
-  --input-bg: rgba(255, 255, 255, 0.9);
-  --shadow-color: rgba(0, 0, 0, 0.2);
-  --pagination-bg: rgba(255, 255, 255, 0.7);
+  --table-header-color: #ffffff;
+  --input-bg: var(--ha-card-bg);
+  --shadow-color: rgba(0, 0, 0, 0.18);
+  --pagination-bg: var(--ha-card-bg);
   --pagination-active-bg: var(--dark-accent);
-  --pagination-active-color: white;
-  --pagination-hover-bg: rgba(255, 255, 255, 0.9);
-  --pagination-disabled-color: #999;
+  --pagination-active-color: #ffffff;
+  --pagination-hover-bg: rgba(128, 128, 128, 0.1);
+  --pagination-disabled-color: #999999;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ha-card-bg: var(--card-background-color, rgba(32, 33, 36, 0.92));
+    --ha-text: var(--primary-text-color, #e8eaed);
+    --ha-secondary-text: var(--secondary-text-color, #b0b5bb);
+    --ha-divider: var(--divider-color, rgba(255, 255, 255, 0.15));
+    --inv-green: color-mix(in srgb, var(--ha-green) 34%, transparent);
+    --inv-orange: color-mix(in srgb, var(--ha-orange) 34%, transparent);
+    --inv-darkorange: color-mix(in srgb, var(--ha-darkorange) 40%, transparent);
+    --inv-red: color-mix(in srgb, var(--ha-red) 34%, transparent);
+    --inv-grey: color-mix(in srgb, var(--ha-grey) 24%, transparent);
+    --table-even: rgba(255, 255, 255, 0.04);
+    --table-odd: rgba(255, 255, 255, 0.01);
+    --input-bg: rgba(48, 49, 52, 0.95);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+  }
 }
 
 body {
@@ -245,20 +286,52 @@ button:hover {
 }
 
 /* Navigation */
+.navigation-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--ha-divider);
+  padding-bottom: 12px;
+}
+
 .navigation {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-  padding-bottom: 12px;
+}
+
+.lang-switcher {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.lang-pill {
+  padding: 5px 10px;
+  border-radius: 14px;
+  font-size: 0.8em;
+  font-weight: 700;
+  background-color: var(--input-bg);
+  border: 1px solid var(--ha-divider);
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.lang-pill.active {
+  background-color: var(--dark-accent);
+  border-color: var(--dark-accent);
+  color: white;
 }
 
 .navigation a {
   padding: 8px 15px;
-  background-color: rgba(255, 255, 255, 0.6);
+  background-color: var(--input-bg);
+  border: 1px solid var(--ha-divider);
   border-radius: 20px;
-  color: var(--dark-accent);
+  color: var(--text-color);
   text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px var(--shadow-color);
@@ -266,7 +339,7 @@ button:hover {
 }
 
 .navigation a:hover {
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: var(--pagination-hover-bg);
   transform: translateY(-2px);
   box-shadow: 0 3px 5px var(--shadow-color);
   text-decoration: none;
@@ -274,6 +347,7 @@ button:hover {
 
 .navigation a.active {
   background-color: var(--dark-accent);
+  border-color: var(--dark-accent);
   color: white;
 }
 
@@ -732,5 +806,402 @@ button:hover {
   
   .input-textarea {
     height: 120px;
+  }
+}
+
+
+/* ==========================================================
+   Mobile-Optimized Inventory & Collapsible Accordion Styles
+   ========================================================== */
+
+.top-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.instruction-text {
+  font-size: 0.95em;
+  color: var(--text-color);
+  opacity: 0.92;
+  margin: 0;
+  flex: 1;
+  min-width: 250px;
+}
+
+.btn-toggle-all {
+  background: var(--input-bg);
+  border: 1px solid var(--basecolor);
+  color: var(--text-color);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.accordion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.location-group {
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 3px 10px var(--shadow-color);
+  overflow: hidden;
+  border: 1px solid var(--ha-divider);
+}
+
+.location-header {
+  background: linear-gradient(135deg, var(--dark-accent), var(--basecolor));
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.location-header:hover {
+  filter: brightness(1.05);
+}
+
+.location-header.is-collapsed {
+  background: color-mix(in srgb, var(--dark-accent) 70%, #222);
+  opacity: 0.9;
+}
+
+.location-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.accordion-icon {
+  width: 20px;
+  text-align: center;
+}
+
+.item-count-badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.location-content {
+  padding: 6px;
+}
+
+/* Mobile Inventory Table (3 Columns) */
+.inventory-table-mobile {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  margin: 0;
+}
+
+.inventory-table-mobile thead {
+  display: none; /* Hide header row on mobile for clean look */
+}
+
+.inventory-table-mobile tbody tr {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.inventory-table-mobile td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.cell-name {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  width: 42%;
+}
+
+.item-title-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-weight: 600;
+  font-size: 1.05em;
+  color: var(--text-color);
+  word-break: break-word;
+}
+
+.item-alert-info {
+  font-size: 0.78em;
+  color: var(--ha-secondary-text);
+  margin-top: 2px;
+}
+
+/* Touch-Optimized Stepper Controls (+ / -) */
+.cell-quantity {
+  width: 44%;
+  padding: 6px 4px !important;
+}
+
+.stepper-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+}
+
+.btn-step {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  background: var(--input-bg) !important;
+  color: var(--text-color) !important;
+  font-size: 1.5em !important;
+  font-weight: bold !important;
+  border: 1px solid var(--ha-divider) !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  touch-action: manipulation;
+  box-shadow: 0 2px 4px var(--shadow-color) !important;
+}
+
+.btn-step:active {
+  filter: brightness(0.9);
+  transform: scale(0.95);
+}
+
+.input-qty {
+  width: 48px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  font-size: 1.25em !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  border: 1px solid var(--ha-divider) !important;
+  border-radius: 8px !important;
+  background: var(--input-bg) !important;
+  color: var(--text-color) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.input-qty::-webkit-inner-spin-button,
+.input-qty::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.unit-label {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
+/* Save / Checkmark Button */
+.cell-action {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  width: 14%;
+  text-align: center;
+  padding: 6px 8px !important;
+}
+
+.btn-save {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  border-radius: 10px !important;
+  background-color: var(--button-success, #7CB342) !important;
+  color: white !important;
+  font-size: 1.4em !important;
+  border: none !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  touch-action: manipulation;
+  background-image: none !important;
+}
+
+.btn-save.is-dirty {
+  background-color: #2196F3 !important;
+  box-shadow: 0 0 10px rgba(33, 150, 243, 0.7) !important;
+}
+
+.btn-save:active {
+  transform: scale(0.94);
+}
+
+.success-pulse {
+  animation: rowSuccessFlash 0.8s ease;
+}
+
+@keyframes rowSuccessFlash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); filter: brightness(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Bottom Sync Button */
+.action-buttons-bottom {
+  margin-top: 25px;
+  text-align: center;
+}
+
+.btn-large-sync {
+  width: 100%;
+  max-width: 500px;
+  min-height: 52px;
+  padding: 14px 20px !important;
+  font-size: 1.15em !important;
+  font-weight: 700 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(13, 71, 161, 0.3) !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-large-sync:active {
+  transform: translateY(2px);
+}
+
+/* ==========================================================
+   Shopping List View Styles
+   ========================================================== */
+
+.store-group {
+  margin-bottom: 25px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 3px 10px var(--shadow-color);
+  border-top: 4px solid var(--dark-accent);
+}
+
+.store-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ha-divider);
+}
+
+.store-header h2 {
+  margin: 0;
+  border-left: none;
+  padding-left: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25em;
+}
+
+.btn-copy {
+  background: var(--input-bg);
+  border: 1px solid var(--ha-divider);
+  color: var(--text-color);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shopping-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shopping-table th, .shopping-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ha-divider);
+  text-align: left;
+}
+
+.badge-qty-low {
+  background-color: var(--ha-red);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.all-stocked-banner {
+  background: var(--success-light);
+  color: var(--ha-green);
+  padding: 20px;
+  border-radius: 12px;
+  font-size: 1.15em;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--ha-green);
+  margin: 30px 0;
+}
+
+@media screen and (max-width: 600px) {
+  .cell-name {
+    width: 38%;
+  }
+  .cell-quantity {
+    width: 48%;
+  }
+  .cell-action {
+    width: 14%;
+  }
+  .input-qty {
+    width: 40px !important;
+  }
+  .btn-step {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    font-size: 1.3em !important;
+  }
+  .btn-save {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    font-size: 1.2em !important;
   }
 }

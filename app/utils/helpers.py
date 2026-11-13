@@ -21,17 +21,17 @@ def get_row_color(last_checked: Optional[datetime]) -> str:
         # Calculate the difference in days
         days_difference = (datetime.now() - last_checked).days
 
-        # Define color-coding logic with non-overlapping ranges
+        # Define color-coding logic with non-overlapping ranges using HA theme CSS variables
         if days_difference < 1:
-            return '#00ff00aa'  # green
+            return 'var(--inv-green)'
         elif 1 <= days_difference < 4:
-            return '#ff9800aa'  # orange (varningsfärg)
+            return 'var(--inv-orange)'
         elif 4 <= days_difference <= 8:
-            return '#ff8c00aa'  # darkorange
+            return 'var(--inv-darkorange)'
         else:
-            return '#ff0000aa'  # red
+            return 'var(--inv-red)'
     else:
-        return 'grey'
+        return 'var(--inv-grey)'
 
 
 def get_warning_color(quantity: Optional[int], alert_quantity: Optional[int]) -> str:
@@ -43,18 +43,18 @@ def get_warning_color(quantity: Optional[int], alert_quantity: Optional[int]) ->
         alert_quantity: Alert threshold for item
         
     Returns:
-        String with color code
+        String with CSS variable color code
     """
     if quantity is not None and alert_quantity is not None:
         quantity_difference = quantity - alert_quantity
         if quantity_difference == 0:
-            return '#ff9800aa'  # Mer orangeaktig varningsfärg
+            return 'var(--inv-orange)'  # Varningsfärg
         elif quantity_difference < 0:
-            return '#ff0000aa'  # Röd för kritiskt
+            return 'var(--inv-red)'  # Röd för kritiskt / av
         else:
-            return '#00ff00aa'  # Grön för OK
+            return 'var(--inv-green)'  # Grön för OK / på
     else:
-        return 'grey'
+        return 'var(--inv-grey)'
 
 
 def get_items_by_category(page: int = 1, items_per_page: int = 50) -> Dict[str, List[Item]]:
@@ -110,3 +110,78 @@ def get_items_by_category(page: int = 1, items_per_page: int = 50) -> Dict[str, 
         return {}
     
     return items_by_category
+
+
+def get_items_by_location() -> Dict[str, List[Item]]:
+    """
+    Get all items grouped by their physical location, sorted dynamically.
+    
+    Returns:
+        Dictionary with location names as keys and sorted lists of items as values.
+    """
+    from app.utils.i18n import t
+    other_label = t('common.other')
+    try:
+        items = Item.query.order_by(Item.name).all()
+        grouped: Dict[str, List[Item]] = {}
+        
+        for item in items:
+            loc = (item.location or '').strip() or other_label
+            if loc not in grouped:
+                grouped[loc] = []
+            grouped[loc].append(item)
+            
+        ordered_grouped: Dict[str, List[Item]] = {}
+        for loc in sorted(k for k in grouped.keys() if k != other_label):
+            ordered_grouped[loc] = grouped[loc]
+        if other_label in grouped:
+            ordered_grouped[other_label] = grouped[other_label]
+            
+        return ordered_grouped
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_items_by_location: {str(e)}")
+        return {}
+
+
+def get_low_stock_by_store() -> Dict[str, List[Item]]:
+    """
+    Get all items that need to be reordered (quantity <= alert_quantity),
+    grouped by store / purchasing channel, sorted dynamically.
+    
+    Returns:
+        Dictionary with store names as keys and lists of items needing restock.
+    """
+    from app.utils.i18n import t
+    other_label = t('common.other')
+    try:
+        items = Item.query.filter(Item.quantity <= Item.alert_quantity).order_by(Item.name).all()
+        grouped: Dict[str, List[Item]] = {}
+        
+        for item in items:
+            store = (item.store or '').strip() or other_label
+            if store not in grouped:
+                grouped[store] = []
+            grouped[store].append(item)
+            
+        ordered_grouped: Dict[str, List[Item]] = {}
+        for store in sorted(k for k in grouped.keys() if k != other_label):
+            ordered_grouped[store] = grouped[store]
+        if other_label in grouped:
+            ordered_grouped[other_label] = grouped[other_label]
+            
+        return ordered_grouped
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_low_stock_by_store: {str(e)}")
+        return {}
+
+
+def get_distinct_field_values(field_name: str) -> List[str]:
+    """Return sorted distinct non-empty values for a given Item string column."""
+    try:
+        col = getattr(Item, field_name)
+        rows = db.session.query(col).distinct().all()
+        return sorted({r[0].strip() for r in rows if r and r[0] and r[0].strip()})
+    except Exception:
+        return []
