@@ -95,7 +95,15 @@
     "settings_saved": "Inställningarna har sparats!",
     "general_heading": "Allmänt",
     "calendar_url": "Länk till Kalender / Översikt (valfri)",
-    "calendar_url_placeholder": "https://..."
+    "calendar_url_placeholder": "https://...",
+    "dropdown_options_heading": "Listval för artiklar (Dropdowns)",
+    "dropdown_options_desc": "Hantera valbara alternativ för Enhet, Plats, Inköpsställe och Kategori under Hantera artiklar.",
+    "options_unit": "Enheter",
+    "options_location": "Platser",
+    "options_store": "Inköpsställen",
+    "options_category": "Kategorier",
+    "add_option_placeholder": "Nytt alternativ...",
+    "add_option_btn": "Lägg till"
   },
   "api": {
     "invalid_quantity": "Antal måste vara ett positivt heltal",

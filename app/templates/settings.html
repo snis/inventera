@@ -113,6 +113,35 @@
                 </table>
             </div>
 
+            <!-- Dropdown Options Management -->
+            <div class="store-group">
+                <h2><i class="fa fa-tags"></i> {{ t('settings.dropdown_options_heading') }}</h2>
+                <p class="instruction-text" style="margin-bottom: 12px;">{{ t('settings.dropdown_options_desc') }}</p>
+
+                <div class="options-grid">
+                    {% for field in ['unit', 'location', 'store', 'category'] %}
+                    <div class="option-card" data-field="{{ field }}">
+                        <h3>{{ t('settings.options_' + field) }}</h3>
+                        <input type="hidden" name="options_{{ field }}" id="options_input_{{ field }}" value='{{ managed_options[field]|tojson }}'>
+                        <div class="option-chips" id="chips_{{ field }}">
+                            {% for val in managed_options[field] %}
+                                <span class="option-chip" data-value="{{ val }}">
+                                    <span class="chip-label">{{ val }}</span>
+                                    <button type="button" class="chip-remove" aria-label="Remove">&times;</button>
+                                </span>
+                            {% endfor %}
+                        </div>
+                        <div class="option-add-row">
+                            <input type="text" class="option-new-input" id="new_opt_{{ field }}" placeholder="{{ t('settings.add_option_placeholder') }}">
+                            <button type="button" class="btn btn-secondary option-add-btn" data-field="{{ field }}">
+                                <i class="fa fa-plus"></i> {{ t('settings.add_option_btn') }}
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
             <!-- General Settings -->
             <div class="store-group">
                 <h2><i class="fa fa-sliders"></i> {{ t('settings.general_heading') }}</h2>
@@ -166,6 +195,53 @@
                     btn.prop('disabled', false);
                     statusEl.html('<span style="color: var(--ha-red);"><i class="fa fa-times"></i> Error</span>');
                 });
+            });
+
+            // Dropdown options chip management
+            function syncFieldOptions(field) {
+                const values = [];
+                $('#chips_' + field + ' .option-chip').each(function() {
+                    values.push($(this).attr('data-value'));
+                });
+                $('#options_input_' + field).val(JSON.stringify(values));
+            }
+
+            function addOptionChip(field) {
+                const input = $('#new_opt_' + field);
+                const val = (input.val() || '').trim();
+                if (!val) return;
+                let exists = false;
+                $('#chips_' + field + ' .option-chip').each(function() {
+                    if ($(this).attr('data-value').toLowerCase() === val.toLowerCase()) {
+                        exists = true;
+                    }
+                });
+                if (!exists) {
+                    const chip = $('<span class="option-chip"></span>').attr('data-value', val);
+                    chip.append($('<span class="chip-label"></span>').text(val));
+                    chip.append($('<button type="button" class="chip-remove" aria-label="Remove">&times;</button>'));
+                    $('#chips_' + field).append(chip);
+                    syncFieldOptions(field);
+                }
+                input.val('').focus();
+            }
+
+            $('.option-add-btn').click(function() {
+                addOptionChip($(this).data('field'));
+            });
+
+            $('.option-new-input').keydown(function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addOptionChip($(this).closest('.option-card').data('field'));
+                }
+            });
+
+            $(document).on('click', '.chip-remove', function() {
+                const card = $(this).closest('.option-card');
+                const field = card.data('field');
+                $(this).closest('.option-chip').remove();
+                syncFieldOptions(field);
             });
         });
     </script>

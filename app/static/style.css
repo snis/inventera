@@ -91,8 +91,8 @@ z-index: -1;
 }
 .card {
   position: relative;
-  max-width: 1200px;
-  width: 95%;
+  max-width: 1600px;
+  width: 96%;
   border-top: 6px solid var(--dark-accent);
   border-left: 1px solid var(--basecolor);
   padding: 12px 20px 25px;
@@ -434,33 +434,40 @@ button:hover {
 
 .inventory-table th,
 .inventory-table td {
-  font-size: 0.95em;
+  font-size: 0.92em;
   padding: 8px 5px;
   box-sizing: border-box;
-  overflow: visible; /* Tillåt innehåll att synas fullt ut */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Direkta kolumnbreddsinställningar - starkare än col */
+/* 9-kolumnslayout för Hantera artiklar (summa 100%) */
 .inventory-table th:nth-child(1),
-.inventory-table td:nth-child(1) { width: 28%; } /* Namn */
+.inventory-table td:nth-child(1) { width: 20%; } /* Benämning */
 
 .inventory-table th:nth-child(2),
-.inventory-table td:nth-child(2) { width: 8%; }  /* Antal */
+.inventory-table td:nth-child(2) { width: 6%; }  /* Antal */
 
 .inventory-table th:nth-child(3),
-.inventory-table td:nth-child(3) { width: 8%; }  /* Larm */
+.inventory-table td:nth-child(3) { width: 7%; }  /* Miniminivå */
 
 .inventory-table th:nth-child(4),
-.inventory-table td:nth-child(4) { width: 12%; } /* Enhet */
+.inventory-table td:nth-child(4) { width: 9%; }  /* Enhet */
 
-.inventory-table th:nth-child(5), 
-.inventory-table td:nth-child(5) { width: 12%; } /* Kategori - samma som enhet */
+.inventory-table th:nth-child(5),
+.inventory-table td:nth-child(5) { width: 13%; } /* Plats */
 
 .inventory-table th:nth-child(6),
-.inventory-table td:nth-child(6) { width: 12%; } /* Datum */
+.inventory-table td:nth-child(6) { width: 14%; } /* Inköpsställe */
 
 .inventory-table th:nth-child(7),
-.inventory-table td:nth-child(7) { width: 14%; } /* Åtgärder - reducerad med 6% */
+.inventory-table td:nth-child(7) { width: 13%; } /* Kategori */
+
+.inventory-table th:nth-child(8),
+.inventory-table td:nth-child(8) { width: 8%; white-space: nowrap; }  /* Uppdaterad */
+
+.inventory-table th:nth-child(9),
+.inventory-table td:nth-child(9) { width: 10%; white-space: nowrap; overflow: visible; } /* Åtgärd */
 
 /* För alla skärmar */
 .input-name, .input-unit, .input-category {
@@ -471,20 +478,26 @@ button:hover {
 
 .input-number {
   width: 100% !important;
-  max-width: 45px !important;
+  max-width: 60px !important;
   text-align: center;
   box-sizing: border-box;
 }
 
-/* Fixa input-fält för att passa inom celler */
+/* Fixa input- och select-fält för att passa inom celler */
 .inventory-table td {
   position: relative; /* För absolut positionering inuti */
 }
 
-.inventory-table input {
-  padding: 5px;
+.inventory-table input,
+.inventory-table select {
+  padding: 5px 6px;
   height: 32px;
   font-size: 14px;
+  background: var(--input-bg);
+  color: var(--text-color);
+  border-radius: 5px;
+  border: 1px solid var(--ha-divider);
+  box-sizing: border-box;
 }
 
 @media screen and (max-width: 1024px) {
@@ -1203,4 +1216,68 @@ button:hover {
     max-width: 42px !important;
     font-size: 1.2em !important;
   }
+}
+
+/* Settings: Dropdown options chip manager */
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.option-card {
+  background: var(--table-even);
+  border: 1px solid var(--ha-divider);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.option-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.05em;
+}
+
+.option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  min-height: 28px;
+}
+
+.option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  background: var(--input-bg);
+  border: 1px solid var(--ha-divider);
+  color: var(--text-color);
+  font-size: 0.9em;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--ha-red);
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.option-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.option-new-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ha-divider);
+  background: var(--input-bg);
+  color: var(--text-color);
 }

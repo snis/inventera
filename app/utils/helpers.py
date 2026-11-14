@@ -177,6 +177,9 @@ def get_low_stock_by_store() -> Dict[str, List[Item]]:
         return {}
 
 
+OPTION_FIELDS = ('unit', 'location', 'store', 'category')
+
+
 def get_distinct_field_values(field_name: str) -> List[str]:
     """Return sorted distinct non-empty values for a given Item string column."""
     try:
@@ -185,3 +188,29 @@ def get_distinct_field_values(field_name: str) -> List[str]:
         return sorted({r[0].strip() for r in rows if r and r[0] and r[0].strip()})
     except Exception:
         return []
+
+
+def get_managed_options(field_name: str) -> List[str]:
+    """Return managed dropdown options for a field, seeding from existing Item values if unset."""
+    from app.models.settings import Settings
+    import json
+
+    raw = Settings.get(f'managed_options_{field_name}')
+    if raw is not None:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return sorted({str(v).strip() for v in parsed if str(v).strip()}, key=str.casefold)
+        except (ValueError, TypeError):
+            pass
+    return get_distinct_field_values(field_name)
+
+
+def save_managed_options(field_name: str, values: List[str]) -> List[str]:
+    """Persist cleaned, sorted dropdown options for a field in Settings."""
+    from app.models.settings import Settings
+    import json
+
+    cleaned = sorted({str(v).strip() for v in values if str(v).strip()}, key=str.casefold)
+    Settings.set(f'managed_options_{field_name}', json.dumps(cleaned, ensure_ascii=False))
+    return cleaned

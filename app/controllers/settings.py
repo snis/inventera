@@ -4,8 +4,14 @@ Handles Home Assistant connection configuration, dynamic store-to-todo mapping,
 language selection, and general app settings.
 """
 from flask import Blueprint, request, jsonify, redirect, url_for, current_app, render_template, session, make_response
+import json
 from app.models.settings import Settings
-from app.utils.helpers import get_distinct_field_values
+from app.utils.helpers import (
+    OPTION_FIELDS,
+    get_distinct_field_values,
+    get_managed_options,
+    save_managed_options
+)
 from app.utils.ha_todo import (
     HomeAssistantTodoClient,
     get_ha_config,
@@ -48,9 +54,10 @@ def settings():
 
         store_todo_map = get_store_todo_map()
         default_todo_entity = Settings.get('ha_default_todo_entity', '')
+        managed_options = {field: get_managed_options(field) for field in OPTION_FIELDS}
 
-        # Collect all stores from Items plus any already in the mapping
-        stores = sorted(set(get_distinct_field_values('store')) | set(store_todo_map.keys()))
+        # Collect all stores from Items, managed store options, and existing mappings
+        stores = sorted(set(get_distinct_field_values('store')) | set(managed_options['store']) | set(store_todo_map.keys()))
 
         return render_template(
             'settings.html',
@@ -63,6 +70,7 @@ def settings():
             stores=stores,
             store_todo_map=store_todo_map,
             default_todo_entity=default_todo_entity,
+            managed_options=managed_options,
             saved=request.args.get('saved') == '1'
         )
     except Exception as e:
@@ -95,6 +103,17 @@ def save_settings():
                 if store_name and value.strip():
                     new_map[store_name] = value.strip()
         save_store_todo_map(new_map)
+
+        # Save managed dropdown options for unit, location, store, category
+        for field in OPTION_FIELDS:
+            raw_json = request.form.get(f'options_{field}')
+            if raw_json is not None:
+                try:
+                    parsed = json.loads(raw_json)
+                    if isinstance(parsed, list):
+                        save_managed_options(field, [str(x) for x in parsed])
+                except (ValueError, TypeError):
+                    pass
 
         return redirect(url_for('settings.settings', saved='1'))
     except Exception as e:

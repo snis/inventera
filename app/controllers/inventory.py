@@ -12,7 +12,7 @@ from app.utils.helpers import (
     get_items_by_category,
     get_items_by_location,
     get_low_stock_by_store,
-    get_distinct_field_values,
+    get_managed_options,
     get_row_color,
     get_warning_color
 )
@@ -146,9 +146,10 @@ def inventory(page: int = 1):
         return render_template(
             'inventory.html',
             items_by_category=items_by_category,
-            distinct_locations=get_distinct_field_values('location'),
-            distinct_stores=get_distinct_field_values('store'),
-            distinct_categories=get_distinct_field_values('category'),
+            distinct_units=get_managed_options('unit'),
+            distinct_locations=get_managed_options('location'),
+            distinct_stores=get_managed_options('store'),
+            distinct_categories=get_managed_options('category'),
             get_row_color=get_row_color,
             get_warning_color=get_warning_color,
             pagination={
