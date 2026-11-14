@@ -28,7 +28,6 @@
   --text-color: var(--ha-text);
   --button-success: var(--ha-green);
   --button-delete: var(--ha-red);
-  --warning-color: var(--ha-orange);
   --success-light: color-mix(in srgb, var(--ha-green) 22%, transparent);
   --warning-light: color-mix(in srgb, var(--ha-orange) 22%, transparent);
   --card-bg: var(--ha-card-bg);
@@ -172,7 +171,7 @@ tr:nth-child(even) {
 }
 
 tr:hover {
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: color-mix(in srgb, var(--ha-text) 6%, transparent);
 }
 td {
   padding: 8px 10px;
@@ -251,7 +250,7 @@ button.apply {
 
 /* Färgkodning för checkknappen baserat på uppdateringstid */
 button.apply.warning {
-  background-color: var(--warning-color, #ff9800);
+  background-color: var(--ha-orange, #ff9800);
 }
 
 button.apply.danger {
