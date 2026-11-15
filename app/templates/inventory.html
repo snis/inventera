@@ -29,15 +29,12 @@
                     <th>{{ t('manage.unit') }}</th>
                     <th>{{ t('manage.location') }}</th>
                     <th>{{ t('manage.store') }}</th>
-                    <th>{{ t('manage.category') }}</th>
                     <th>{{ t('manage.last_checked') }}</th>
                     <th>{{ t('manage.actions') }}</th>
                 </tr>
             </thead>
             <tbody>
-                {% for category, items in items_by_category.items()|sort %}
-                    {% if items %}
-                    {% for item in items|sort(attribute='name') %}
+                {% for item in items %}
                         <tr id="item-row-{{ item.id }}">
                             <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
                                 <input type="text" name="name_{{ item.id }}" value="{{ item.name }}" class="input-name">
@@ -50,43 +47,24 @@
                             </td>
                             <td id="item-unit-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">
                                 <select name="unit_{{ item.id }}" class="input-unit">
-                                    {% if item.unit and item.unit not in distinct_units %}
-                                        <option value="{{ item.unit }}" selected>{{ item.unit }}</option>
-                                    {% endif %}
                                     {% for u in distinct_units %}
-                                        <option value="{{ u }}" {% if item.unit == u %}selected{% endif %}>{{ u }}</option>
+                                        <option value="{{ u.id }}" {% if item.unit_id == u.id or (not item.unit_id and item.unit == u.name) %}selected{% endif %}>{{ u.name }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
                             <td id="item-location-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
                                 <select name="location_{{ item.id }}" class="input-category">
                                     <option value="">—</option>
-                                    {% if item.location and item.location not in distinct_locations %}
-                                        <option value="{{ item.location }}" selected>{{ item.location }}</option>
-                                    {% endif %}
                                     {% for loc in distinct_locations %}
-                                        <option value="{{ loc }}" {% if item.location == loc %}selected{% endif %}>{{ loc }}</option>
+                                        <option value="{{ loc.id }}" {% if item.location_id == loc.id or (not item.location_id and item.location == loc.name) %}selected{% endif %}>{{ loc.name }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
                             <td id="item-store-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
                                 <select name="store_{{ item.id }}" class="input-category">
                                     <option value="">—</option>
-                                    {% if item.store and item.store not in distinct_stores %}
-                                        <option value="{{ item.store }}" selected>{{ item.store }}</option>
-                                    {% endif %}
                                     {% for st in distinct_stores %}
-                                        <option value="{{ st }}" {% if item.store == st %}selected{% endif %}>{{ st }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td id="item-category-{{ item.id }}" style="background-color: {{ get_row_color(item.last_checked) }}">
-                                <select name="category_{{ item.id }}" class="input-category">
-                                    {% if category and category not in distinct_categories %}
-                                        <option value="{{ category }}" selected>{{ category }}</option>
-                                    {% endif %}
-                                    {% for cat in distinct_categories %}
-                                        <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                                        <option value="{{ st.id }}" {% if item.store_id == st.id or (not item.store_id and item.store == st.name) %}selected{% endif %}>{{ st.name }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
@@ -98,8 +76,6 @@
                                 <button class="remove-item item-remove-btn" type="button" data-item-id="{{ item.id }}" title="{{ t('common.delete') }}"></button>
                             </td>
                         </tr>
-                    {% endfor %}
-                    {% endif %}
                 {% endfor %}
                 <!-- Add Item row -->
                 <tr id="add-item-row">
@@ -110,7 +86,7 @@
                         <select id="new_unit" name="new_unit" class="input-unit">
                             <option value="">{{ t('manage.unit_placeholder') }}</option>
                             {% for u in distinct_units %}
-                                <option value="{{ u }}">{{ u }}</option>
+                                <option value="{{ u.id }}">{{ u.name }}</option>
                             {% endfor %}
                         </select>
                     </td>
@@ -118,7 +94,7 @@
                         <select id="new_location" name="new_location" class="input-category">
                             <option value="">{{ t('manage.location_placeholder') }}</option>
                             {% for loc in distinct_locations %}
-                                <option value="{{ loc }}">{{ loc }}</option>
+                                <option value="{{ loc.id }}">{{ loc.name }}</option>
                             {% endfor %}
                         </select>
                     </td>
@@ -126,15 +102,7 @@
                         <select id="new_store" name="new_store" class="input-category">
                             <option value="">{{ t('manage.store_placeholder') }}</option>
                             {% for st in distinct_stores %}
-                                <option value="{{ st }}">{{ st }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td>
-                        <select id="new_category" name="new_category" class="input-category">
-                            <option value="">{{ t('manage.category_placeholder') }}</option>
-                            {% for cat in distinct_categories %}
-                                <option value="{{ cat }}">{{ cat }}</option>
+                                <option value="{{ st.id }}">{{ st.name }}</option>
                             {% endfor %}
                         </select>
                     </td>
@@ -164,7 +132,6 @@
                 formData.append(`unit_${itemId}`, $(`[name="unit_${itemId}"]`).val());
                 formData.append(`location_${itemId}`, $(`[name="location_${itemId}"]`).val());
                 formData.append(`store_${itemId}`, $(`[name="store_${itemId}"]`).val());
-                formData.append(`category_${itemId}`, $(`[name="category_${itemId}"]`).val());
 
                 $(this).css('opacity', '0.5');
 
@@ -242,9 +209,8 @@
                 formData.append('new_unit', $('#new_unit').val());
                 formData.append('new_location', $('#new_location').val());
                 formData.append('new_store', $('#new_store').val());
-                formData.append('new_category', $('#new_category').val());
 
-                if (!$('#new_name').val() || !$('#new_unit').val() || !$('#new_category').val()) {
+                if (!$('#new_name').val() || !$('#new_unit').val()) {
                     alert(T.api.missing_fields);
                     return;
                 }

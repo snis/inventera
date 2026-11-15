@@ -97,7 +97,7 @@
     "calendar_url": "Calendar / Overview URL (optional)",
     "calendar_url_placeholder": "https://...",
     "dropdown_options_heading": "Item Dropdown Options",
-    "dropdown_options_desc": "Manage selectable options for Unit, Location, Store, and Category in Manage Items.",
+    "dropdown_options_desc": "Manage and rename selectable options for Unit, Location, and Store in Manage Items.",
     "options_unit": "Units",
     "options_location": "Locations",
     "options_store": "Stores",

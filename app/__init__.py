@@ -84,9 +84,11 @@ def create_app(test_config=None):
             'calendar_url': calendar_url
         }
     
-    # Create database tables if they don't exist
+    # Create database tables if they don't exist and backfill ID-backed options
     with app.app_context():
         db.create_all()
+        from app.utils.helpers import ensure_option_schema_and_backfill
+        ensure_option_schema_and_backfill()
     
     app.logger.info("Application initialized successfully")
     return app

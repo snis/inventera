@@ -10,7 +10,7 @@ from app.utils.helpers import (
     OPTION_FIELDS,
     get_distinct_field_values,
     get_managed_options,
-    save_managed_options
+    save_managed_options_crud
 )
 from app.utils.ha_todo import (
     HomeAssistantTodoClient,
@@ -56,8 +56,8 @@ def settings():
         default_todo_entity = Settings.get('ha_default_todo_entity', '')
         managed_options = {field: get_managed_options(field) for field in OPTION_FIELDS}
 
-        # Collect all stores from Items, managed store options, and existing mappings
-        stores = sorted(set(get_distinct_field_values('store')) | set(managed_options['store']) | set(store_todo_map.keys()))
+        # Collect all stores from Store table and existing mappings
+        stores = sorted(set(get_distinct_field_values('store')) | set(store_todo_map.keys()))
 
         return render_template(
             'settings.html',
@@ -104,16 +104,37 @@ def save_settings():
                     new_map[store_name] = value.strip()
         save_store_todo_map(new_map)
 
-        # Save managed dropdown options for unit, location, store, category
+        # Save ID-backed Unit, Location, Store options (renames, additions, deletions)
         for field in OPTION_FIELDS:
-            raw_json = request.form.get(f'options_{field}')
-            if raw_json is not None:
+            renames = {}
+            prefix = f'opt_{field}_'
+            for key, val in request.form.items():
+                if key.startswith(prefix):
+                    try:
+                        opt_id = int(key[len(prefix):])
+                        renames[opt_id] = val
+                    except ValueError:
+                        pass
+
+            delete_ids = []
+            raw_del = request.form.get(f'opt_del_{field}')
+            if raw_del:
                 try:
-                    parsed = json.loads(raw_json)
-                    if isinstance(parsed, list):
-                        save_managed_options(field, [str(x) for x in parsed])
+                    delete_ids = [int(x) for x in json.loads(raw_del)]
                 except (ValueError, TypeError):
                     pass
+
+            new_names = []
+            raw_new = request.form.get(f'opt_new_{field}')
+            if raw_new:
+                try:
+                    parsed_new = json.loads(raw_new)
+                    if isinstance(parsed_new, list):
+                        new_names = [str(x) for x in parsed_new]
+                except (ValueError, TypeError):
+                    pass
+
+            save_managed_options_crud(field, renames, new_names, delete_ids)
 
         return redirect(url_for('settings.settings', saved='1'))
     except Exception as e:

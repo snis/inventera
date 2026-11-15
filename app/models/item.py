@@ -6,22 +6,50 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
+class Unit(db.Model):
+    """Model representing a measurement unit with a stable database ID."""
+    __tablename__ = 'units'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(32), nullable=False, unique=True)
+
+
+class Location(db.Model):
+    """Model representing a storage location with a stable database ID."""
+    __tablename__ = 'locations'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False, unique=True)
+
+
+class Store(db.Model):
+    """Model representing a store/supplier with a stable database ID."""
+    __tablename__ = 'stores'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False, unique=True)
+
+
 class Item(db.Model):
     """
     Model representing an inventory item.
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
-    category = db.Column(db.String(32), nullable=False)
+    category = db.Column(db.String(32), nullable=True, default='')
     quantity = db.Column(db.Integer)
-    unit = db.Column(db.String(16), nullable=False)
+    unit = db.Column(db.String(16), nullable=False, default='')
+    unit_id = db.Column(db.Integer, db.ForeignKey('units.id'), nullable=True)
     alert_quantity = db.Column(db.Integer)
     last_checked = db.Column(db.DateTime, default=datetime.utcnow)
     location = db.Column(db.String(32), nullable=True)
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=True)
     store = db.Column(db.String(32), nullable=True)
+    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=True)
     # New fields for Google Tasks / Home Assistant integration
     task_id = db.Column(db.String(64), nullable=True)  # Tasks task ID if added
     added_to_task = db.Column(db.DateTime, nullable=True)  # When item was added to tasks
+
+    unit_rel = db.relationship('Unit', foreign_keys=[unit_id])
+    location_rel = db.relationship('Location', foreign_keys=[location_id])
+    store_rel = db.relationship('Store', foreign_keys=[store_id])
 
     def __repr__(self) -> str:
         """String representation of the item"""
@@ -32,13 +60,15 @@ class Item(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'category': self.category,
             'quantity': self.quantity,
-            'unit': self.unit,
+            'unit': self.unit_rel.name if self.unit_rel else self.unit,
+            'unit_id': self.unit_id,
             'alert_quantity': self.alert_quantity,
             'last_checked': self.last_checked.strftime('%d/%m') if self.last_checked else None,
-            'location': self.location,
-            'store': self.store,
+            'location': self.location_rel.name if self.location_rel else self.location,
+            'location_id': self.location_id,
+            'store': self.store_rel.name if self.store_rel else self.store,
+            'store_id': self.store_id,
             'task_id': self.task_id,
             'added_to_task': self.added_to_task.strftime('%d/%m') if self.added_to_task else None
         }

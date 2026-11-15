@@ -3,7 +3,8 @@ Helper functions for the inventory application.
 """
 from datetime import datetime
 from typing import Dict, List, Optional
-from app.models.item import Item
+from sqlalchemy import text
+from app.models.item import Item, Unit, Location, Store
 from app import db
 
 
@@ -177,11 +178,19 @@ def get_low_stock_by_store() -> Dict[str, List[Item]]:
         return {}
 
 
-OPTION_FIELDS = ('unit', 'location', 'store', 'category')
+OPTION_FIELDS = ('unit', 'location', 'store')
+OPTION_MODELS = {
+    'unit': Unit,
+    'location': Location,
+    'store': Store,
+}
 
 
 def get_distinct_field_values(field_name: str) -> List[str]:
     """Return sorted distinct non-empty values for a given Item string column."""
+    if field_name in OPTION_MODELS:
+        model = OPTION_MODELS[field_name]
+        return [row.name for row in model.query.order_by(db.func.lower(model.name)).all()]
     try:
         col = getattr(Item, field_name)
         rows = db.session.query(col).distinct().all()
@@ -190,27 +199,134 @@ def get_distinct_field_values(field_name: str) -> List[str]:
         return []
 
 
-def get_managed_options(field_name: str) -> List[str]:
-    """Return managed dropdown options for a field, seeding from existing Item values if unset."""
+def get_or_create_option(field_name: str, name: str):
+    """Fetch existing option row (case-insensitive) or create a new one."""
+    clean = (name or '').strip()
+    if not clean:
+        return None
+    model = OPTION_MODELS[field_name]
+    existing = model.query.filter(db.func.lower(model.name) == clean.lower()).first()
+    if existing:
+        return existing
+    created = model(name=clean)
+    db.session.add(created)
+    db.session.flush()
+    return created
+
+
+def ensure_option_schema_and_backfill() -> None:
+    """Add unit_id/location_id/store_id columns if missing and backfill from existing items/settings."""
     from app.models.settings import Settings
     import json
 
-    raw = Settings.get(f'managed_options_{field_name}')
-    if raw is not None:
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                return sorted({str(v).strip() for v in parsed if str(v).strip()}, key=str.casefold)
-        except (ValueError, TypeError):
-            pass
-    return get_distinct_field_values(field_name)
+    cols = {row[1] for row in db.session.execute(text("PRAGMA table_info(item)")).fetchall()}
+    for col_name in ('unit_id', 'location_id', 'store_id'):
+        if col_name not in cols:
+            db.session.execute(text(f"ALTER TABLE item ADD COLUMN {col_name} INTEGER"))
+    db.session.commit()
+
+    # Seed any previously saved Settings managed_options_<field>
+    for field in OPTION_FIELDS:
+        raw = Settings.get(f'managed_options_{field}')
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    for val in parsed:
+                        get_or_create_option(field, str(val))
+            except (ValueError, TypeError):
+                pass
+
+    # Backfill Item foreign keys from existing string columns
+    for item in Item.query.all():
+        if item.unit_id is None and (item.unit or '').strip():
+            opt = get_or_create_option('unit', item.unit)
+            if opt:
+                item.unit_id = opt.id
+                item.unit = opt.name
+        if item.location_id is None and (item.location or '').strip():
+            opt = get_or_create_option('location', item.location)
+            if opt:
+                item.location_id = opt.id
+                item.location = opt.name
+        if item.store_id is None and (item.store or '').strip():
+            opt = get_or_create_option('store', item.store)
+            if opt:
+                item.store_id = opt.id
+                item.store = opt.name
+    db.session.commit()
 
 
-def save_managed_options(field_name: str, values: List[str]) -> List[str]:
-    """Persist cleaned, sorted dropdown options for a field in Settings."""
-    from app.models.settings import Settings
-    import json
+def get_managed_options(field_name: str):
+    """Return all option rows (with .id and .name) for a field sorted by name."""
+    model = OPTION_MODELS[field_name]
+    return model.query.order_by(db.func.lower(model.name)).all()
 
-    cleaned = sorted({str(v).strip() for v in values if str(v).strip()}, key=str.casefold)
-    Settings.set(f'managed_options_{field_name}', json.dumps(cleaned, ensure_ascii=False))
-    return cleaned
+
+def save_managed_options_crud(
+    field_name: str,
+    renames: Dict[int, str],
+    new_names: List[str],
+    delete_ids: List[int],
+) -> None:
+    """Apply renames, additions, and deletions for Unit/Location/Store by ID and sync Items."""
+    model = OPTION_MODELS[field_name]
+    fk_col = f'{field_name}_id'
+
+    # Handle deletions first
+    for opt_id in delete_ids:
+        opt = model.query.get(opt_id)
+        if opt:
+            Item.query.filter(getattr(Item, fk_col) == opt.id).update(
+                {fk_col: None, field_name: ''}, synchronize_session=False
+            )
+            db.session.delete(opt)
+    db.session.flush()
+
+    # Handle renames by ID (update option name + sync Item string column + store_todo_map)
+    store_renames: Dict[str, str] = {}
+    for opt_id, new_name in renames.items():
+        clean = (new_name or '').strip()
+        if not clean:
+            continue
+        opt = model.query.get(opt_id)
+        if not opt or opt.name == clean:
+            continue
+        conflict = model.query.filter(
+            db.func.lower(model.name) == clean.lower(), model.id != opt.id
+        ).first()
+        if conflict:
+            # Merge items into existing target option
+            Item.query.filter(getattr(Item, fk_col) == opt.id).update(
+                {fk_col: conflict.id, field_name: conflict.name}, synchronize_session=False
+            )
+            if field_name == 'store':
+                store_renames[opt.name] = conflict.name
+            db.session.delete(opt)
+        else:
+            old_name = opt.name
+            opt.name = clean
+            Item.query.filter(getattr(Item, fk_col) == opt.id).update(
+                {field_name: clean}, synchronize_session=False
+            )
+            if field_name == 'store':
+                store_renames[old_name] = clean
+
+    # Handle additions
+    for name in new_names:
+        get_or_create_option(field_name, name)
+
+    db.session.commit()
+
+    if store_renames:
+        from app.utils.ha_todo import get_store_todo_map, save_store_todo_map
+        todo_map = get_store_todo_map()
+        changed = False
+        for old_name, new_name in store_renames.items():
+            if old_name in todo_map:
+                if new_name not in todo_map:
+                    todo_map[new_name] = todo_map[old_name]
+                del todo_map[old_name]
+                changed = True
+        if changed:
+            save_store_todo_map(todo_map)

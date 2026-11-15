@@ -119,16 +119,17 @@
                 <p class="instruction-text" style="margin-bottom: 12px;">{{ t('settings.dropdown_options_desc') }}</p>
 
                 <div class="options-grid">
-                    {% for field in ['unit', 'location', 'store', 'category'] %}
+                    {% for field in ['unit', 'location', 'store'] %}
                     <div class="option-card" data-field="{{ field }}">
                         <h3>{{ t('settings.options_' + field) }}</h3>
-                        <input type="hidden" name="options_{{ field }}" id="options_input_{{ field }}" value='{{ managed_options[field]|tojson }}'>
-                        <div class="option-chips" id="chips_{{ field }}">
-                            {% for val in managed_options[field] %}
-                                <span class="option-chip" data-value="{{ val }}">
-                                    <span class="chip-label">{{ val }}</span>
-                                    <button type="button" class="chip-remove" aria-label="Remove">&times;</button>
-                                </span>
+                        <input type="hidden" name="opt_del_{{ field }}" id="opt_del_{{ field }}" value="[]">
+                        <input type="hidden" name="opt_new_{{ field }}" id="opt_new_{{ field }}" value="[]">
+                        <div class="option-list" id="list_{{ field }}">
+                            {% for opt in managed_options[field] %}
+                                <div class="option-edit-row" data-id="{{ opt.id }}">
+                                    <input type="text" name="opt_{{ field }}_{{ opt.id }}" value="{{ opt.name }}" class="option-edit-input">
+                                    <button type="button" class="chip-remove option-del-btn" aria-label="Remove">&times;</button>
+                                </div>
                             {% endfor %}
                         </div>
                         <div class="option-add-row">
@@ -197,51 +198,65 @@
                 });
             });
 
-            // Dropdown options chip management
-            function syncFieldOptions(field) {
+            // ID-backed dropdown options management (rename, add, delete)
+            function syncNewOptions(field) {
                 const values = [];
-                $('#chips_' + field + ' .option-chip').each(function() {
-                    values.push($(this).attr('data-value'));
+                $('#list_' + field + ' .option-new-row').each(function() {
+                    const v = ($(this).find('.option-edit-input').val() || '').trim();
+                    if (v) values.push(v);
                 });
-                $('#options_input_' + field).val(JSON.stringify(values));
+                $('#opt_new_' + field).val(JSON.stringify(values));
             }
 
-            function addOptionChip(field) {
+            function addOptionRow(field) {
                 const input = $('#new_opt_' + field);
                 const val = (input.val() || '').trim();
                 if (!val) return;
                 let exists = false;
-                $('#chips_' + field + ' .option-chip').each(function() {
-                    if ($(this).attr('data-value').toLowerCase() === val.toLowerCase()) {
+                $('#list_' + field + ' .option-edit-input').each(function() {
+                    if (($(this).val() || '').trim().toLowerCase() === val.toLowerCase()) {
                         exists = true;
                     }
                 });
                 if (!exists) {
-                    const chip = $('<span class="option-chip"></span>').attr('data-value', val);
-                    chip.append($('<span class="chip-label"></span>').text(val));
-                    chip.append($('<button type="button" class="chip-remove" aria-label="Remove">&times;</button>'));
-                    $('#chips_' + field).append(chip);
-                    syncFieldOptions(field);
+                    const row = $('<div class="option-edit-row option-new-row"></div>');
+                    const inp = $('<input type="text" class="option-edit-input">').val(val);
+                    const btn = $('<button type="button" class="chip-remove option-del-btn" aria-label="Remove">&times;</button>');
+                    row.append(inp).append(btn);
+                    $('#list_' + field).append(row);
+                    syncNewOptions(field);
                 }
                 input.val('').focus();
             }
 
             $('.option-add-btn').click(function() {
-                addOptionChip($(this).data('field'));
+                addOptionRow($(this).data('field'));
             });
 
             $('.option-new-input').keydown(function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    addOptionChip($(this).closest('.option-card').data('field'));
+                    addOptionRow($(this).closest('.option-card').data('field'));
                 }
             });
 
-            $(document).on('click', '.chip-remove', function() {
+            $(document).on('input', '.option-new-row .option-edit-input', function() {
+                syncNewOptions($(this).closest('.option-card').data('field'));
+            });
+
+            $(document).on('click', '.option-del-btn', function() {
                 const card = $(this).closest('.option-card');
                 const field = card.data('field');
-                $(this).closest('.option-chip').remove();
-                syncFieldOptions(field);
+                const row = $(this).closest('.option-edit-row');
+                const optId = row.data('id');
+                if (optId) {
+                    const delInput = $('#opt_del_' + field);
+                    const ids = JSON.parse(delInput.val() || '[]');
+                    ids.push(optId);
+                    delInput.val(JSON.stringify(ids));
+                }
+                row.remove();
+                syncNewOptions(field);
             });
         });
     </script>

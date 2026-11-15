@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 from app import db
-from app.models.item import Item
+from app.models.item import Item, Unit, Location, Store
 from app.utils.helpers import (
     get_items_by_category,
     get_items_by_location,
@@ -135,21 +135,19 @@ def inventory(page: int = 1):
     """
     try:
         items_per_page = 50  # Default from requirements
-        
-        # Get items for the current page
-        items_by_category = get_items_by_category(page=page, items_per_page=items_per_page)
-        
-        # Count total items for pagination
-        total_items = db.session.query(Item).count()
+
+        # Get items sorted alphabetically for the current page
+        query = Item.query.order_by(db.func.lower(Item.name))
+        total_items = query.count()
         total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
+        items = query.limit(items_per_page).offset((page - 1) * items_per_page).all()
 
         return render_template(
             'inventory.html',
-            items_by_category=items_by_category,
+            items=items,
             distinct_units=get_managed_options('unit'),
             distinct_locations=get_managed_options('location'),
             distinct_stores=get_managed_options('store'),
-            distinct_categories=get_managed_options('category'),
             get_row_color=get_row_color,
             get_warning_color=get_warning_color,
             pagination={
@@ -194,14 +192,36 @@ def update_items():
                     if alert_quantity_str and alert_quantity_str.strip().isdigit():
                         item.alert_quantity = int(alert_quantity_str)
                     
-                    item.unit = request.form.get(f'unit_{item_id}')
-                    item.category = request.form.get(f'category_{item_id}')
-                    if request.form.get(f'location_{item_id}'):
-                        item.location = request.form.get(f'location_{item_id}')
-                    if request.form.get(f'store_{item_id}'):
-                        item.store = request.form.get(f'store_{item_id}')
+                    unit_id_str = request.form.get(f'unit_{item_id}')
+                    if unit_id_str and unit_id_str.isdigit():
+                        unit_obj = Unit.query.get(int(unit_id_str))
+                        if unit_obj:
+                            item.unit_id = unit_obj.id
+                            item.unit = unit_obj.name
+
+                    loc_id_str = request.form.get(f'location_{item_id}')
+                    if loc_id_str and loc_id_str.isdigit():
+                        loc_obj = Location.query.get(int(loc_id_str))
+                        if loc_obj:
+                            item.location_id = loc_obj.id
+                            item.location = loc_obj.name
+                    elif loc_id_str == '':
+                        item.location_id = None
+                        item.location = ''
+
+                    store_id_str = request.form.get(f'store_{item_id}')
+                    if store_id_str and store_id_str.isdigit():
+                        store_obj = Store.query.get(int(store_id_str))
+                        if store_obj:
+                            item.store_id = store_obj.id
+                            item.store = store_obj.name
+                    elif store_id_str == '':
+                        item.store_id = None
+                        item.store = ''
+
                     item.last_checked = datetime.now()
-        
+                    db.session.commit()
+
                     # AJAX response if requested
                     if is_ajax_request():
                         row_color = get_row_color(item.last_checked)
@@ -216,29 +236,32 @@ def update_items():
 
         # Handle item addition
         if 'add_item' in request.form:
-            new_name = request.form.get('new_name')
+            new_name = (request.form.get('new_name') or '').strip()
             new_quantity_str = request.form.get('new_quantity')
             new_alert_quantity_str = request.form.get('new_alert_quantity')
-            new_unit = request.form.get('new_unit')
-            new_category = request.form.get('new_category')
-            new_location = (request.form.get('new_location') or '').strip() or t('common.other')
-            new_store = (request.form.get('new_store') or '').strip() or t('common.other')
-            
+            new_unit_id_str = request.form.get('new_unit')
+            new_location_id_str = request.form.get('new_location')
+            new_store_id_str = request.form.get('new_store')
+
+            unit_obj = Unit.query.get(int(new_unit_id_str)) if (new_unit_id_str and new_unit_id_str.isdigit()) else None
+            loc_obj = Location.query.get(int(new_location_id_str)) if (new_location_id_str and new_location_id_str.isdigit()) else None
+            store_obj = Store.query.get(int(new_store_id_str)) if (new_store_id_str and new_store_id_str.isdigit()) else None
+
             # Validate inputs
-            if not new_name or not new_unit or not new_category:
+            if not new_name or not unit_obj:
                 return create_response(
                     success=False,
                     message=t('api.missing_fields'),
                     redirect_url=url_for('inventory.inventory')
                 )
-            
+
             new_quantity = 0
             new_alert_quantity = 0
-            
+
             # Validate quantity and alert_quantity
             if new_quantity_str and new_quantity_str.strip().isdigit():
                 new_quantity = int(new_quantity_str)
-            
+
             if new_alert_quantity_str and new_alert_quantity_str.strip().isdigit():
                 new_alert_quantity = int(new_alert_quantity_str)
 
@@ -247,10 +270,13 @@ def update_items():
                 name=new_name,
                 quantity=new_quantity,
                 alert_quantity=new_alert_quantity,
-                unit=new_unit, 
-                category=new_category,
-                location=new_location,
-                store=new_store,
+                unit=unit_obj.name,
+                unit_id=unit_obj.id,
+                category='',
+                location=loc_obj.name if loc_obj else '',
+                location_id=loc_obj.id if loc_obj else None,
+                store=store_obj.name if store_obj else '',
+                store_id=store_obj.id if store_obj else None,
                 last_checked=datetime.now()
             )
             db.session.add(new_item)

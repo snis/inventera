@@ -97,7 +97,7 @@
     "calendar_url": "Länk till Kalender / Översikt (valfri)",
     "calendar_url_placeholder": "https://...",
     "dropdown_options_heading": "Listval för artiklar (Dropdowns)",
-    "dropdown_options_desc": "Hantera valbara alternativ för Enhet, Plats, Inköpsställe och Kategori under Hantera artiklar.",
+    "dropdown_options_desc": "Hantera och byt namn på alternativ för Enhet, Plats och Inköpsställe under Hantera artiklar.",
     "options_unit": "Enheter",
     "options_location": "Platser",
     "options_store": "Inköpsställen",
