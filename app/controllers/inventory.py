@@ -183,24 +183,25 @@ def update_quantity():
             )
 
         _check_version(item, request.form.get("version"))
+        now_dt = utc_now()
+        next_version = (item.version or 1) + 1
         item.quantity = new_quantity
-        item.last_checked = utc_now()
-        item.version = (item.version or 1) + 1
+        item.last_checked = now_dt
+        item.version = next_version
+        response_payload = {
+            "status": "success",
+            "item_id": item_id,
+            "new_quantity": new_quantity,
+            "version": next_version,
+            "last_checked": now_dt.strftime("%d/%m"),
+            "row_color": get_row_color(now_dt),
+            "warning_color": get_warning_color(new_quantity, item.alert_quantity),
+            "button_class": "",
+        }
         db.session.commit()
 
         if is_ajax_request():
-            return jsonify(
-                {
-                    "status": "success",
-                    "item_id": item_id,
-                    "new_quantity": new_quantity,
-                    "version": item.version,
-                    "last_checked": item.last_checked.strftime("%d/%m"),
-                    "row_color": get_row_color(item.last_checked),
-                    "warning_color": get_warning_color(item.quantity, item.alert_quantity),
-                    "button_class": "",
-                }
-            )
+            return jsonify(response_payload)
         return redirect(url_for("main.index"))
     except ValueError:
         db.session.rollback()
@@ -306,20 +307,22 @@ def update_items():
         if "add_item" in request.form:
             db.session.add(_create_item_from_form())
 
+        response_payload: dict | None = None
+        if updated_item and is_ajax_request():
+            response_payload = {
+                "status": "success",
+                "item_id": updated_item.id,
+                "item": updated_item.to_dict(),
+                "row_color": get_row_color(updated_item.last_checked),
+                "warning_color": get_warning_color(
+                    updated_item.quantity, updated_item.alert_quantity
+                ),
+            }
+
         db.session.commit()
 
-        if updated_item and is_ajax_request():
-            return jsonify(
-                {
-                    "status": "success",
-                    "item_id": updated_item.id,
-                    "item": updated_item.to_dict(),
-                    "row_color": get_row_color(updated_item.last_checked),
-                    "warning_color": get_warning_color(
-                        updated_item.quantity, updated_item.alert_quantity
-                    ),
-                }
-            )
+        if response_payload is not None:
+            return jsonify(response_payload)
 
         if "add_item" in request.form and is_ajax_request():
             return jsonify({"status": "success", "message": t("api.item_added")})
@@ -416,17 +419,18 @@ def toggle_visibility(item_id: int):
         if not item:
             return jsonify({"status": "error", "message": t("api.item_not_found")}), 404
         _check_version(item, request.form.get("version"))
-        item.is_visible = not bool(item.is_visible)
-        item.version = (item.version or 1) + 1
+        next_visible = not bool(item.is_visible)
+        next_version = (item.version or 1) + 1
+        item.is_visible = next_visible
+        item.version = next_version
+        response_payload = {
+            "status": "success",
+            "item_id": item.id,
+            "is_visible": next_visible,
+            "version": next_version,
+        }
         db.session.commit()
-        return jsonify(
-            {
-                "status": "success",
-                "item_id": item.id,
-                "is_visible": bool(item.is_visible),
-                "version": item.version,
-            }
-        )
+        return jsonify(response_payload)
     except ValueError as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 400

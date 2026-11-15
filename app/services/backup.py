@@ -103,6 +103,7 @@ def export_backup_payload() -> dict[str, Any]:
             "location": item.location or "",
             "store": item.store or "",
             "is_visible": bool(item.is_visible),
+            "version": item.version,
             "task_id": item.task_id,
             "last_checked": item.last_checked.isoformat() if item.last_checked else None,
             "added_to_task": item.added_to_task.isoformat() if item.added_to_task else None,
@@ -173,6 +174,13 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
                 raise ValueError("Backup item 'task_id' exceeds maximum length of 64")
             task_id = clean_task_id or None
 
+        raw_version = raw_item.get("version")
+        item_version: int | None = None
+        if raw_version is not None:
+            item_version = _parse_strict_int(raw_version, "version", str(raw_item.get("name", "")))
+            if item_version < 1:
+                raise ValueError(f"Backup item 'version' must be >= 1, got {item_version}")
+
         raw_name = raw_item.get("name")
         raw_unit = raw_item.get("unit")
         if not isinstance(raw_name, str) or not isinstance(raw_unit, str):
@@ -210,6 +218,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
                 "location": (loc_val or "").strip(),
                 "store": (store_val or "").strip(),
                 "is_visible": is_visible,
+                "version": item_version,
                 "task_id": task_id,
                 "last_checked": _parse_iso_dt(raw_item.get("last_checked"), "last_checked")
                 or utc_now(),
@@ -218,6 +227,8 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         )
 
     # All validation passed — now replace data atomically
+    existing_versions = {row.id: (row.version or 1) for row in Item.query.all()}
+    max_existing_version = max(existing_versions.values(), default=0)
     Item.query.delete(synchronize_session=False)
     Unit.query.delete(synchronize_session=False)
     Location.query.delete(synchronize_session=False)
@@ -235,6 +246,12 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         unit_obj = get_or_create_option("unit", entry["unit"]) if entry["unit"] else None
         loc_obj = get_or_create_option("location", entry["location"])
         store_obj = get_or_create_option("store", entry["store"])
+        prior_version = (
+            existing_versions.get(entry["id"], 0)
+            if entry["id"] is not None
+            else max_existing_version
+        )
+        restored_version = max(prior_version, entry["version"] or 1) + 1
         item_kwargs: dict[str, Any] = {
             "name": entry["name"],
             "quantity": entry["quantity"],
@@ -247,6 +264,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
             "store": store_obj.name if store_obj else "",
             "store_id": store_obj.id if store_obj else None,
             "is_visible": entry["is_visible"],
+            "version": restored_version,
             "task_id": entry["task_id"],
             "last_checked": entry["last_checked"],
             "added_to_task": entry["added_to_task"],

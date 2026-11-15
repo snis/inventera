@@ -141,15 +141,13 @@ def save_managed_options_crud(
         todo_map = get_store_todo_map()
         updated_map = dict(todo_map)
         changed = False
-        for old_name in deleted_store_names:
+        for old_name in deleted_store_names | set(store_renames.keys()):
             if old_name in updated_map:
                 del updated_map[old_name]
                 changed = True
         for old_name, new_name in store_renames.items():
             if old_name in todo_map:
                 updated_map[new_name] = todo_map[old_name]
-                if old_name not in store_renames.values():
-                    updated_map.pop(old_name, None)
                 changed = True
         if changed:
             save_store_todo_map(updated_map)

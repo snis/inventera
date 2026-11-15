@@ -57,30 +57,31 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
             "message": t("api.ha_not_configured"),
         }
 
-    low_items = (
-        Item.query.filter(Item.is_visible.is_(True), Item.quantity <= Item.alert_quantity)
-        .order_by(Item.name)
-        .all()
-    )
-    if not low_items:
-        return {
-            "status": "success",
-            "synced_count": 0,
-            "failed_count": 0,
-            "skipped_count": 0,
-            "unmapped_count": 0,
-            "message": t("api.sync_none"),
-        }
-
-    store_map = get_store_todo_map()
-    default_entity = (Settings.get("ha_default_todo_entity", "") or "").strip()
-
-    if not default_entity and not store_map:
-        discovered = client.get_todo_entities()
-        if discovered:
-            default_entity = discovered[0]["entity_id"]
-
     with _sync_lock:
+        db.session.expire_all()
+        low_items = (
+            Item.query.filter(Item.is_visible.is_(True), Item.quantity <= Item.alert_quantity)
+            .order_by(Item.name)
+            .all()
+        )
+        if not low_items:
+            return {
+                "status": "success",
+                "synced_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "unmapped_count": 0,
+                "message": t("api.sync_none"),
+            }
+
+        store_map = get_store_todo_map()
+        default_entity = (Settings.get("ha_default_todo_entity", "") or "").strip()
+
+        if not default_entity and not store_map:
+            discovered = client.get_todo_entities()
+            if discovered:
+                default_entity = discovered[0]["entity_id"]
+
         return _execute_sync(client, low_items, store_map, default_entity)
 
 
@@ -144,7 +145,7 @@ def _execute_sync(
     skipped: list[str] = []
     failed: list[str] = []
     unmapped: list[str] = []
-    dirty_task_ids = False
+    synced_updates: dict[int, dict[Any, Any]] = {}
 
     for item in low_items:
         store = (item.store or "").strip()
@@ -167,8 +168,7 @@ def _execute_sync(
         matched = _find_matching_entry(item, clean_name, existing_entries)
         if matched is not None:
             if matched.get("uid") and item.task_id != matched["uid"]:
-                item.task_id = matched["uid"]
-                dirty_task_ids = True
+                synced_updates[item.id] = {"task_id": matched["uid"]}
             skipped.append(clean_name)
             continue
 
@@ -185,7 +185,7 @@ def _execute_sync(
         )
 
         if client.add_todo_item(target_entity, task_title, description):
-            item.added_to_task = utc_now()
+            synced_updates[item.id] = {"added_to_task": utc_now()}
             synced.append(clean_name)
             existing_entries.append(
                 {
@@ -199,7 +199,9 @@ def _execute_sync(
             failed.append(clean_name)
             logger.error(f"Failed to add {clean_name} to {target_entity}")
 
-    if synced or dirty_task_ids:
+    if synced_updates:
+        for item_id, fields in synced_updates.items():
+            Item.query.filter_by(id=item_id).update(fields, synchronize_session=False)
         db.session.commit()
 
     all_unmapped = bool(unmapped) and not synced and not skipped and not failed

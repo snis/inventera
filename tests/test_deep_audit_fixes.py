@@ -972,3 +972,156 @@ def test_options_rename_succeeds_even_when_tmp_rename_name_exists(app):
         assert db.session.get(Unit, u1.id).name == "kg"
         assert db.session.get(Unit, u2.id).name == "st"
         assert db.session.get(Unit, u_collision.id).name == "__tmp_rename_1_0__"
+
+
+def test_backup_restore_invalidates_stale_item_versions(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Kaffe", quantity=1, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+        item_id = item.id
+
+    res_bump = client.post(
+        "/update_quantity",
+        data={"item_id": str(item_id), "new_quantity": "9", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_bump.status_code == 200
+    assert res_bump.get_json()["version"] == 2
+
+    backup_bytes = client.get("/settings/backup").get_data()
+    res_restore = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(backup_bytes), "v2.json")},
+        content_type="multipart/form-data",
+    )
+    assert res_restore.status_code == 302
+
+    # Both version=1 and version=2 forms from before restore must now fail with 409
+    for old_ver in ("1", "2"):
+        res_del = client.post(
+            f"/remove_item/{item_id}",
+            data={"version": old_ver},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert res_del.status_code == 409
+
+    with app.app_context():
+        restored = db.session.get(Item, item_id)
+        assert restored is not None
+        assert restored.version >= 3
+
+
+def test_store_swap_with_unmapped_partner_does_not_duplicate_todo_mapping(app):
+    with app.app_context():
+        alpha = Store(name="Alpha")
+        beta = Store(name="Beta")
+        db.session.add_all([alpha, beta])
+        db.session.flush()
+        save_store_todo_map({"Alpha": "todo.alpha"})
+        db.session.commit()
+
+        save_managed_options_crud(
+            "store",
+            {alpha.id: "Beta", beta.id: "Alpha"},
+            [],
+            [],
+        )
+        db.session.commit()
+
+        assert get_store_todo_map() == {"Beta": "todo.alpha"}
+
+
+def test_queued_ha_sync_rereads_updated_stock_after_waiting_on_lock(app):
+    from app.services import shopping_sync
+
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        salt = Item(name="Salt", quantity=1, alert_quantity=2, unit="st", unit_id=u.id)
+        db.session.add(salt)
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+        salt_id = salt.id
+
+    results: list[dict] = []
+    lock_acquired = threading.Event()
+    release_lock = threading.Event()
+
+    def hold_lock():
+        with shopping_sync._sync_lock:
+            lock_acquired.set()
+            release_lock.wait(timeout=5)
+
+    def run_queued_sync():
+        with app.app_context():
+            with (
+                patch(
+                    "app.services.shopping_sync.HomeAssistantTodoClient.get_existing_items",
+                    return_value=[],
+                ),
+                patch(
+                    "app.services.shopping_sync.HomeAssistantTodoClient.add_todo_item",
+                    return_value=True,
+                ),
+            ):
+                results.append(sync_low_inventory_to_ha())
+
+    t_holder = threading.Thread(target=hold_lock)
+    t_holder.start()
+    assert lock_acquired.wait(timeout=5)
+
+    t_sync = threading.Thread(target=run_queued_sync)
+    t_sync.start()
+
+    # Restock Salt from 1 -> 10 while sync is waiting on _sync_lock
+    with app.app_context():
+        db.session.query(Item).filter_by(id=salt_id).update({"quantity": 10, "version": 2})
+        db.session.commit()
+
+    release_lock.set()
+    t_holder.join(timeout=5)
+    t_sync.join(timeout=5)
+
+    assert len(results) == 1
+    assert results[0]["synced_count"] == 0
+    assert results[0]["status"] == "success"
+
+
+def test_update_quantity_response_uses_committed_version_not_post_commit_select(app, client):
+    from sqlalchemy import event
+
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Mjölk", quantity=1, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+        item_id = item.id
+
+        def bump_after_commit(session):
+            # Simulate another worker committing version=3, quantity=7 right after commit
+            with db.engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE item SET quantity = 7, version = 3 WHERE id = :id"),
+                    {"id": item_id},
+                )
+
+        event.listen(db.session, "after_commit", bump_after_commit, once=True)
+
+    res = client.post(
+        "/update_quantity",
+        data={"item_id": str(item_id), "new_quantity": "2", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["new_quantity"] == 2
+    assert payload["version"] == 2
