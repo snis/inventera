@@ -117,6 +117,8 @@
   "api": {
     "invalid_quantity": "Antal måste vara ett positivt heltal",
     "item_not_found": "Artikel hittades inte",
+    "item_conflict": "Artikeln har ändrats. Ladda om sidan innan du sparar igen.",
+    "duplicate_item": "En artikel med namnet '{name}' finns redan.",
     "item_updated": "Artikel uppdaterad",
     "item_added": "Artikel tillagd",
     "item_deleted": "Artikel borttagen",

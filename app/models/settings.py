@@ -2,10 +2,10 @@
 Settings model for the inventory application.
 """
 
-from app.extensions import db
+from app.extensions import BaseModel, db
 
 
-class Settings(db.Model):
+class Settings(BaseModel):
     """
     Model representing application settings.
     """

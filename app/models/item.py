@@ -2,11 +2,13 @@
 Item model for the inventory application.
 """
 
+from sqlalchemy.orm import validates
+
 from app.config import utc_now
-from app.extensions import db
+from app.extensions import BaseModel, db
 
 
-class Unit(db.Model):
+class Unit(BaseModel):
     """Model representing a measurement unit with a stable database ID."""
 
     __tablename__ = "units"
@@ -14,7 +16,7 @@ class Unit(db.Model):
     name = db.Column(db.String(32), nullable=False, unique=True)
 
 
-class Location(db.Model):
+class Location(BaseModel):
     """Model representing a storage location with a stable database ID."""
 
     __tablename__ = "locations"
@@ -22,7 +24,7 @@ class Location(db.Model):
     name = db.Column(db.String(64), nullable=False, unique=True)
 
 
-class Store(db.Model):
+class Store(BaseModel):
     """Model representing a store/supplier with a stable database ID."""
 
     __tablename__ = "stores"
@@ -30,7 +32,7 @@ class Store(db.Model):
     name = db.Column(db.String(64), nullable=False, unique=True)
 
 
-class Item(db.Model):
+class Item(BaseModel):
     """
     Model representing an inventory item.
     """
@@ -39,6 +41,7 @@ class Item(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
+    name_key = db.Column(db.String(128), nullable=False, unique=True)
     category = db.Column(db.String(32), nullable=True, default="")
     quantity = db.Column(db.Integer)
     unit = db.Column(db.String(16), nullable=False, default="")
@@ -54,6 +57,14 @@ class Item(db.Model):
     added_to_task = db.Column(db.DateTime, nullable=True)  # When item was added to tasks
     is_visible = db.Column(db.Boolean, nullable=False, default=True)
     version = db.Column(db.Integer, nullable=False, default=1)
+
+    __mapper_args__ = {"version_id_col": version, "version_id_generator": False}
+
+    @validates("name")
+    def normalize_name(self, _key: str, value: str) -> str:
+        """Keep database uniqueness consistent with Unicode name comparisons."""
+        self.name_key = value.strip().casefold()
+        return value
 
     unit_rel = db.relationship("Unit", foreign_keys=[unit_id])
     location_rel = db.relationship("Location", foreign_keys=[location_id])

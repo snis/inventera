@@ -61,7 +61,7 @@ def get_locale() -> str:
     return DEFAULT_LANGUAGE
 
 
-def t(key: str, lang: str = None, **kwargs) -> str:
+def t(key: str, lang: str | None = None, **kwargs: Any) -> str:
     """
     Translate a dot-notated key (e.g. 'nav.inventory').
     Falls back to English, then Swedish, then the key itself.
@@ -97,7 +97,7 @@ def t(key: str, lang: str = None, **kwargs) -> str:
     return str(val)
 
 
-def get_translations_dict(lang: str = None) -> dict[str, Any]:
+def get_translations_dict(lang: str | None = None) -> dict[str, Any]:
     """Return full translation dictionary for the given language (for JS usage)."""
     if not _TRANSLATIONS:
         _load_translations()

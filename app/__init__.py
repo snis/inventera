@@ -82,11 +82,11 @@ def create_app(test_config=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
 
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    proxied = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     raw_trusted = os.environ.get("INGRESS_TRUSTED_PROXIES", DEFAULT_INGRESS_PROXY)
     trusted_proxies = {ip.strip() for ip in raw_trusted.split(",") if ip.strip()}
     app.wsgi_app = IngressMiddleware(
-        app.wsgi_app,
+        proxied,
         enforce_trusted_proxy=bool(app.config.get("ENFORCE_INGRESS_PROXY", False)),
         trusted_proxies=trusted_proxies,
     )

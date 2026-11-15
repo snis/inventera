@@ -5,6 +5,7 @@ Contains routes for inventory management operations.
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import utc_now
 from app.extensions import db
@@ -57,19 +58,16 @@ def _check_version(item: Item, raw_version: str | None) -> None:
     expected_version = _parse_non_negative_int(raw_version, "version")
     current_version = item.version if item.version is not None else 1
     if expected_version != current_version:
-        raise _ItemConflictError(
-            "Artikeln har ändrats i en annan flik eller begäran. Ladda om sidan."
-        )
+        raise _ItemConflictError(t("api.item_conflict"))
 
 
 def _ensure_unique_item_name(name: str, *, exclude_item_id: int | None = None) -> None:
     """Ensure item names are unique case-insensitively across Unicode characters."""
-    target = name.casefold()
-    for existing in Item.query.all():
-        if exclude_item_id is not None and existing.id == exclude_item_id:
-            continue
-        if existing.name.casefold() == target:
-            raise _ItemConflictError(f"Artikeln '{name}' finns redan")
+    query = Item.query.filter_by(name_key=name.casefold())
+    if exclude_item_id is not None:
+        query = query.filter(Item.id != exclude_item_id)
+    if query.first() is not None:
+        raise _ItemConflictError(t("api.duplicate_item", name=name))
 
 
 def _apply_item_update(item: Item, item_id: int) -> None:
@@ -212,11 +210,11 @@ def update_quantity():
             redirect_url=url_for("main.index"),
             status_code=400,
         )
-    except _ItemConflictError as e:
+    except (_ItemConflictError, StaleDataError) as e:
         db.session.rollback()
         return create_response(
             success=False,
-            message=str(e),
+            message=t("api.item_conflict") if isinstance(e, StaleDataError) else str(e),
             redirect_url=url_for("main.index"),
             status_code=409,
         )
@@ -335,11 +333,11 @@ def update_items():
             redirect_url=url_for("inventory.inventory"),
             status_code=400,
         )
-    except _ItemConflictError as e:
+    except (_ItemConflictError, StaleDataError) as e:
         db.session.rollback()
         return create_response(
             success=False,
-            message=str(e),
+            message=t("api.item_conflict") if isinstance(e, StaleDataError) else str(e),
             redirect_url=url_for("inventory.inventory"),
             status_code=409,
         )
@@ -391,11 +389,11 @@ def remove_item(item_id: int):
             redirect_url=url_for("inventory.inventory"),
             status_code=400,
         )
-    except _ItemConflictError as e:
+    except (_ItemConflictError, StaleDataError) as e:
         db.session.rollback()
         return create_response(
             success=False,
-            message=str(e),
+            message=t("api.item_conflict") if isinstance(e, StaleDataError) else str(e),
             redirect_url=url_for("inventory.inventory"),
             status_code=409,
         )
@@ -432,9 +430,14 @@ def toggle_visibility(item_id: int):
     except ValueError as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 400
-    except _ItemConflictError as e:
+    except (_ItemConflictError, StaleDataError) as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 409
+        return jsonify(
+            {
+                "status": "error",
+                "message": t("api.item_conflict") if isinstance(e, StaleDataError) else str(e),
+            }
+        ), 409
     except Exception:
         db.session.rollback()
         current_app.logger.exception(f"Error toggling visibility for {item_id}")

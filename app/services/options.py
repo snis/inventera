@@ -1,11 +1,14 @@
 """Option management services (Unit, Location, Store)."""
 
+from typing import Any
+
 from app.extensions import db
 from app.integrations.home_assistant import get_store_todo_map, save_store_todo_map
 from app.models.item import Item, Location, Store, Unit
 
 OPTION_FIELDS = ("unit", "location", "store")
-OPTION_MODELS = {
+OptionModel = Unit | Location | Store
+OPTION_MODELS: dict[str, type[Any]] = {
     "unit": Unit,
     "location": Location,
     "store": Store,
@@ -91,14 +94,15 @@ def save_managed_options_crud(
             if field_name == "store":
                 deleted_store_names.add(opt.name)
             Item.query.filter(getattr(Item, fk_col) == opt.id).update(
-                {fk_col: None, field_name: ""}, synchronize_session=False
+                {fk_col: None, field_name: "", "version": Item.version + 1},
+                synchronize_session=False,
             )
             db.session.delete(opt)
     db.session.flush()
 
     # 3. Apply renames via two-phase temporary names so swaps (A <-> B) never collide
     store_renames: dict[str, str] = {}
-    pending_renames: list[tuple[object, str, str]] = []
+    pending_renames: list[tuple[OptionModel, str, str]] = []
     for opt_id, raw_new in renames.items():
         if opt_id in delete_set:
             continue
@@ -115,7 +119,7 @@ def save_managed_options_crud(
     for opt, old_name, new_name in pending_renames:
         opt.name = new_name
         Item.query.filter(getattr(Item, fk_col) == opt.id).update(
-            {field_name: new_name}, synchronize_session=False
+            {field_name: new_name, "version": Item.version + 1}, synchronize_session=False
         )
         if field_name == "store":
             store_renames[old_name] = new_name

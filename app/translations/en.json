@@ -117,6 +117,8 @@
   "api": {
     "invalid_quantity": "Quantity must be a non-negative integer",
     "item_not_found": "Item not found",
+    "item_conflict": "The item has changed. Reload the page before saving again.",
+    "duplicate_item": "An item named '{name}' already exists.",
     "item_updated": "Item updated",
     "item_added": "Item added",
     "item_deleted": "Item deleted",

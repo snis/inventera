@@ -30,7 +30,7 @@ Guidance for AI assistants working in the Inventera repository.
   - `app/controllers/inventory.py`: `/inventory` (sortable by `name`, `location`, `store`; default `location`), `/update_items`, `/toggle_visibility/<item_id>`, `/remove_item/<item_id>`, `/shopping`, `/sync_ha`.
   - `app/controllers/settings.py`: `/settings`, `/settings/save` (atomic transaction), `/settings/test_ha`, `/set_language/<lang>`.
 - **Templates & Static**: `app/templates/base.html` shared layout with CSRF meta tag and local vendor assets (`app/static/vendor/` — no external CDNs).
-- **Migrations**: Alembic / Flask-Migrate in `migrations/` (`0001_initial_v25_schema.py` supports fresh install and legacy v1/v2.0 upgrade/backfill).
+- **Migrations**: Alembic / Flask-Migrate in `migrations/`. The initial schema targets fresh installations; pre-release schema changes do not require legacy upgrades. Never replace an existing development database automatically.
 - **i18n**: `app/utils/i18n.py` with `app/translations/sv.json` and `app/translations/en.json`.
 
 ## Code Style Guidelines

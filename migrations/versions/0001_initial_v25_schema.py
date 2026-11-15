@@ -40,6 +40,7 @@ def upgrade() -> None:
         "item",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(length=32), nullable=False, unique=True),
+        sa.Column("name_key", sa.String(length=128), nullable=False, unique=True),
         sa.Column("category", sa.String(length=32), nullable=True),
         sa.Column("quantity", sa.Integer(), nullable=True),
         sa.Column("unit", sa.String(length=16), nullable=False),

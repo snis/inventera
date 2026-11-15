@@ -59,12 +59,14 @@ services:
 
 Database schema creation is handled via Alembic/Flask-Migrate (`migrations/`). In Home Assistant Add-on mode (`config.yaml`), the SQLite database and persistent `.secret_key` are stored in `/data`. You can also export and restore your inventory and non-secret settings as JSON under **Settings -> Backup & Restore**.
 
+Before the first release, the initial schema may change without an upgrade migration. Export a JSON backup before switching to a new development schema, create a fresh database, and restore the backup. Item names must be unique regardless of letter case, including Unicode characters. Existing database files are never replaced automatically.
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |---|---|---|
 | `TZ` | Container timezone | System default |
-| `SECRET_KEY` | Flask session secret key | Random per-start |
+| `SECRET_KEY` | Flask session secret key | Generated once and persisted in `.secret_key` |
 | `HA_URL` | Optional initial Home Assistant URL (overridden by Settings DB) | `""` |
 | `HA_TOKEN` | Optional initial Home Assistant token (overridden by Settings DB) | `""` |
 | `CALENDAR_URL` | Optional initial calendar link (overridden by Settings DB) | `""` |
