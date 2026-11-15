@@ -53,6 +53,8 @@ def upgrade() -> None:
         sa.Column("task_id", sa.String(length=64), nullable=True),
         sa.Column("added_to_task", sa.DateTime(), nullable=True),
         sa.Column("is_visible", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("version", sa.Integer(), nullable=False, server_default=sa.text("1")),
+        sqlite_autoincrement=True,
     )
 
 

@@ -157,9 +157,10 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         unit_name = raw_unit.strip()
         if not name:
             raise ValueError("Backup item missing required 'name'")
-        if name in seen_names:
+        name_key = name.casefold()
+        if name_key in seen_names:
             raise ValueError(f"Duplicate item name in backup: {name}")
-        seen_names.add(name)
+        seen_names.add(name_key)
 
         qty = _parse_strict_int(raw_item.get("quantity"), "quantity", name)
         alert_qty = _parse_strict_int(raw_item.get("alert_quantity"), "alert_quantity", name)
@@ -226,8 +227,13 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
             )
         )
 
-    for key, val in validated_settings.items():
-        Settings.set(key, val)
+    backup_defaults = {
+        "ha_default_todo_entity": "",
+        "ha_store_todo_map": "{}",
+        "calendar_url": "",
+    }
+    for key in BACKUP_SETTING_KEYS:
+        Settings.set(key, validated_settings.get(key, backup_defaults.get(key, "")))
 
     db.session.flush()
     return len(validated_items)

@@ -42,7 +42,7 @@
                             </thead>
                             <tbody>
                                 {% for item in items %}
-                                    <tr id="item-row-{{ item.id }}" class="item-row">
+                                    <tr id="item-row-{{ item.id }}" class="item-row" data-version="{{ item.version or 1 }}">
                                         <!-- Column 1: Benämning -->
                                         <td id="item-name-{{ item.id }}" 
                                             class="cell-name" 
@@ -197,10 +197,23 @@
                 saveItem(itemId);
             });
 
+            const saveSeq = {};
+            const inFlightSave = {};
+            const pendingSave = {};
+
             function saveItem(itemId) {
+                if (inFlightSave[itemId]) {
+                    pendingSave[itemId] = true;
+                    return;
+                }
+
                 const input = $('#qty-input-' + itemId);
                 const newQuantity = input.val();
                 const saveBtn = $('#btn-save-' + itemId);
+                const row = $('#item-row-' + itemId);
+                const reqSeq = (saveSeq[itemId] || 0) + 1;
+                saveSeq[itemId] = reqSeq;
+                inFlightSave[itemId] = true;
 
                 saveBtn.css('opacity', '0.5');
 
@@ -209,17 +222,30 @@
                     url: "{{ url_for('inventory.update_quantity') }}",
                     data: {
                         item_id: itemId,
-                        new_quantity: newQuantity
+                        new_quantity: newQuantity,
+                        version: row.attr('data-version')
                     },
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
-                        saveBtn.css('opacity', '1');
-                        if (String(input.val()) === String(newQuantity)) {
-                            saveBtn.removeClass('is-dirty');
+                        inFlightSave[itemId] = false;
+                        if (reqSeq !== saveSeq[itemId]) {
+                            return;
                         }
                         if (response.status === 'success') {
+                            if (response.version !== undefined) {
+                                row.attr('data-version', response.version);
+                            }
+                            if (pendingSave[itemId]) {
+                                pendingSave[itemId] = false;
+                                saveItem(itemId);
+                                return;
+                            }
+                            saveBtn.css('opacity', '1');
+                            if (String(input.val()) === String(newQuantity)) {
+                                saveBtn.removeClass('is-dirty');
+                            }
                             // Update cell colors
                             $('#item-name-' + response.item_id).css('background-color', response.warning_color);
                             $('#item-quantity-cell-' + response.item_id).css('background-image',
@@ -227,16 +253,22 @@
                             $('#item-button-' + response.item_id).css('background-color', response.row_color);
 
                             // Success flash
-                            const row = $('#item-row-' + response.item_id);
                             row.addClass('success-pulse');
                             setTimeout(function() {
                                 row.removeClass('success-pulse');
                             }, 800);
                         } else {
+                            pendingSave[itemId] = false;
+                            saveBtn.css('opacity', '1');
                             alert(response.message || T.index.update_error);
                         }
                     },
                     error: function(err) {
+                        inFlightSave[itemId] = false;
+                        pendingSave[itemId] = false;
+                        if (reqSeq !== saveSeq[itemId]) {
+                            return;
+                        }
                         saveBtn.css('opacity', '1');
                         console.error('Error saving:', err);
                         alert((err.responseJSON && err.responseJSON.message) || T.index.save_error);

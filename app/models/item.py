@@ -35,6 +35,8 @@ class Item(db.Model):
     Model representing an inventory item.
     """
 
+    __table_args__ = {"sqlite_autoincrement": True}
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
     category = db.Column(db.String(32), nullable=True, default="")
@@ -51,6 +53,7 @@ class Item(db.Model):
     task_id = db.Column(db.String(64), nullable=True)  # Tasks task ID if added
     added_to_task = db.Column(db.DateTime, nullable=True)  # When item was added to tasks
     is_visible = db.Column(db.Boolean, nullable=False, default=True)
+    version = db.Column(db.Integer, nullable=False, default=1)
 
     unit_rel = db.relationship("Unit", foreign_keys=[unit_id])
     location_rel = db.relationship("Location", foreign_keys=[location_id])
@@ -77,4 +80,5 @@ class Item(db.Model):
             "task_id": self.task_id,
             "added_to_task": self.added_to_task.strftime("%d/%m") if self.added_to_task else None,
             "is_visible": bool(self.is_visible),
+            "version": self.version,
         }

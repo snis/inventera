@@ -41,7 +41,7 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                        <tr id="item-row-{{ item.id }}" class="{% if not item.is_visible %}row-hidden{% endif %}">
+                        <tr id="item-row-{{ item.id }}" class="{% if not item.is_visible %}row-hidden{% endif %}" data-version="{{ item.version or 1 }}">
                             <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
                                 <input type="text" name="name_{{ item.id }}" value="{{ item.name }}" class="input-name">
                             </td>
@@ -133,9 +133,11 @@
             // Update item via AJAX
             $('.item-update-btn').click(function() {
                 const itemId = $(this).data('item-id');
+                const row = $('#item-row-' + itemId);
                 const formData = new FormData();
 
                 formData.append('update_item', itemId);
+                formData.append(`version_${itemId}`, row.attr('data-version'));
                 formData.append(`name_${itemId}`, $(`input[name="name_${itemId}"]`).val());
                 formData.append(`quantity_${itemId}`, $(`input[name="quantity_${itemId}"]`).val());
                 formData.append(`alert_quantity_${itemId}`, $(`input[name="alert_quantity_${itemId}"]`).val());
@@ -157,8 +159,10 @@
                         btn.css('opacity', '1');
 
                         if (response.status === 'success') {
+                            if (response.item && response.item.version !== undefined) {
+                                row.attr('data-version', response.item.version);
+                            }
                             $('#item-updated-' + itemId).text(response.item.last_checked);
-                            const row = $('#item-row-' + itemId);
                             row.find('td').css('background-color', response.row_color);
                             $('#item-name-' + itemId).css('background-color', response.warning_color);
                             $('#item-quantity-' + itemId).css('background-color', response.warning_color);
@@ -170,9 +174,9 @@
                             alert(response.message || T.index.update_error);
                         }
                     },
-                    error: function() {
+                    error: function(xhr) {
                         $(`.item-update-btn[data-item-id="${itemId}"]`).css('opacity', '1');
-                        alert(T.common.error_generic);
+                        alert((xhr.responseJSON && xhr.responseJSON.message) || T.common.error_generic);
                     }
                 });
             });
@@ -181,16 +185,20 @@
             $('.item-visibility-btn').click(function() {
                 const btn = $(this);
                 const itemId = btn.data('item-id');
+                const row = $('#item-row-' + itemId);
                 btn.css('opacity', '0.5');
 
                 $.ajax({
                     type: 'POST',
                     url: btn.data('url'),
+                    data: { version: row.attr('data-version') },
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     success: function(response) {
                         btn.css('opacity', '1');
                         if (response.status === 'success') {
-                            const row = $('#item-row-' + itemId);
+                            if (response.version !== undefined) {
+                                row.attr('data-version', response.version);
+                            }
                             const icon = btn.find('i');
                             if (response.is_visible) {
                                 row.removeClass('row-hidden');
@@ -221,23 +229,25 @@
                 }
 
                 const btn = $(this);
+                const row = $('#item-row-' + itemId);
                 btn.css('opacity', '0.5');
 
                 $.ajax({
                     type: 'POST',
                     url: btn.data('url'),
+                    data: { version: row.attr('data-version') },
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     success: function(response) {
                         btn.css('opacity', '1');
                         if (response.status === 'success') {
-                            $('#item-row-' + itemId).fadeOut(300, function() { $(this).remove(); });
+                            row.fadeOut(300, function() { $(this).remove(); });
                         } else {
                             alert(response.message || T.common.error_generic);
                         }
                     },
-                    error: function() {
+                    error: function(xhr) {
                         btn.css('opacity', '1');
-                        alert(T.common.error_generic);
+                        alert((xhr.responseJSON && xhr.responseJSON.message) || T.common.error_generic);
                     }
                 });
             });

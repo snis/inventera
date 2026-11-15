@@ -316,7 +316,7 @@ def test_backup_export_and_atomic_restore(app, client):
         assert te.store == "Coop"
 
 
-def test_backup_roundtrip_case_variant_names_empty_unit_and_tz_conversion(app, client):
+def test_backup_roundtrip_empty_unit_tz_and_case_duplicate_rejected(app, client):
     with app.app_context():
         u = Unit(name="st")
         db.session.add(u)
@@ -324,7 +324,7 @@ def test_backup_roundtrip_case_variant_names_empty_unit_and_tz_conversion(app, c
         db.session.add_all(
             [
                 Item(name="Salt", quantity=1, alert_quantity=0, unit="st", unit_id=u.id),
-                Item(name="salt", quantity=2, alert_quantity=0, unit="", unit_id=None),
+                Item(name="Peppar", quantity=2, alert_quantity=0, unit="", unit_id=None),
             ]
         )
         db.session.commit()
@@ -342,12 +342,23 @@ def test_backup_roundtrip_case_variant_names_empty_unit_and_tz_conversion(app, c
     assert res.status_code == 302
 
     with app.app_context():
-        big = Item.query.filter_by(name="Salt").first()
-        small = Item.query.filter_by(name="salt").first()
-        assert big is not None and small is not None
-        assert small.unit == "" and small.unit_id is None
-        assert big.last_checked.hour == 13
-        assert big.last_checked.minute == 0
+        salt = Item.query.filter_by(name="Salt").first()
+        peppar = Item.query.filter_by(name="Peppar").first()
+        assert salt is not None and peppar is not None
+        assert peppar.unit == "" and peppar.unit_id is None
+        assert salt.last_checked.hour == 13
+        assert salt.last_checked.minute == 0
+
+        # Backup with case-variant duplicate ("Salt" and "salt") must be rejected
+        dup_payload = dict(payload)
+        dup_payload["items"] = [
+            payload["items"][0],
+            {**payload["items"][1], "name": "salt"},
+        ]
+        from app.services.backup import restore_backup_payload
+
+        with pytest.raises(ValueError, match="Duplicate item name"):
+            restore_backup_payload(dup_payload)
 
 
 def test_cannot_delete_unit_in_use_and_settings_confirm_attr_valid(app, client):
@@ -527,3 +538,139 @@ def test_metadata_rename_preserves_last_checked_date(app, client):
         updated = db.session.get(Item, item_id)
         assert updated.name == "NyttNamn"
         assert updated.last_checked == old_dt
+
+
+def test_deleted_item_id_not_reused_and_stale_version_returns_409(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item_a = Item(name="Artikel A", quantity=2, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item_a)
+        db.session.commit()
+        id_a = item_a.id
+        db.session.delete(item_a)
+        db.session.commit()
+
+        item_b = Item(name="Artikel B", quantity=5, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item_b)
+        db.session.commit()
+        id_b = item_b.id
+
+    assert id_b != id_a
+
+    # Stale form targeting deleted Artikel A must return 404 and not touch Artikel B
+    res_deleted = client.post(
+        "/update_quantity",
+        data={"item_id": str(id_a), "new_quantity": "99", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_deleted.status_code == 404
+
+    # First update on Artikel B with version=1 succeeds and bumps version to 2
+    res_ok = client.post(
+        "/update_quantity",
+        data={"item_id": str(id_b), "new_quantity": "7", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_ok.status_code == 200
+    assert res_ok.get_json()["version"] == 2
+
+    # Stale update with version=1 must return 409 and preserve quantity=7
+    res_stale = client.post(
+        "/update_quantity",
+        data={"item_id": str(id_b), "new_quantity": "99", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_stale.status_code == 409
+
+    with app.app_context():
+        b_now = db.session.get(Item, id_b)
+        assert b_now.quantity == 7
+        assert b_now.version == 2
+
+
+def test_backup_restore_clears_omitted_settings_while_preserving_ha_token(app, client):
+    dl = client.get("/settings/backup")
+    assert dl.status_code == 200
+    empty_backup = json.loads(dl.get_data(as_text=True))
+    empty_backup["settings"] = {}
+
+    with app.app_context():
+        Settings.set("ha_token", "secret-token-keep")
+        Settings.set("calendar_url", "https://example.com/cal")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        Settings.set("ha_store_todo_map", '{"ICA": "todo.ica"}')
+        db.session.commit()
+
+    res = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(json.dumps(empty_backup).encode("utf-8")), "empty.json")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 302
+
+    with app.app_context():
+        assert Settings.get("calendar_url") == ""
+        assert Settings.get("ha_default_todo_entity") == ""
+        assert Settings.get("ha_store_todo_map") == "{}"
+        assert Settings.get("ha_token") == "secret-token-keep"
+
+
+def test_case_insensitive_item_uniqueness_across_create_and_rename(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add_all(
+            [
+                Item(name="Salt", quantity=1, alert_quantity=0, unit="st", unit_id=u.id),
+                Item(name="Socker", quantity=1, alert_quantity=0, unit="st", unit_id=u.id),
+            ]
+        )
+        db.session.commit()
+        unit_id = u.id
+        socker_id = Item.query.filter_by(name="Socker").first().id
+
+    # Creating "salt" or "sAlt" must fail with 409
+    for variant in ("salt", "sAlt"):
+        res_create = client.post(
+            "/update_items",
+            data={
+                "add_item": "true",
+                "new_name": variant,
+                "new_quantity": "1",
+                "new_alert_quantity": "0",
+                "new_unit": str(unit_id),
+            },
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert res_create.status_code == 409
+
+    # Renaming "Socker" -> "sAlt" must also fail with 409
+    res_rename = client.post(
+        "/update_items",
+        data={
+            f"update_item_{socker_id}": str(socker_id),
+            f"name_{socker_id}": "sAlt",
+            f"quantity_{socker_id}": "1",
+            f"alert_quantity_{socker_id}": "0",
+            f"unit_{socker_id}": str(unit_id),
+        },
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_rename.status_code == 409
+
+
+def test_index_renders_save_sequencing_and_version_attr(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add(Item(name="Smör", quantity=2, alert_quantity=1, unit="st", unit_id=u.id))
+        db.session.commit()
+
+    html = client.get("/").get_data(as_text=True)
+    assert 'data-version="1"' in html
+    assert "saveSeq" in html
+    assert "inFlightSave" in html
