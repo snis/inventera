@@ -1,188 +1,112 @@
-# Inventera
+# Inventera (v2.5)
 
-Inventera is a simple and effective inventory management web application built with Flask. It helps track inventory items, monitor stock levels, and manage inventory checks.
-
-![Inventory Screen](screenshots/inventory.png)
+Inventera is a modern, mobile-friendly inventory and shopping list web application built with Flask and SQLite, designed to integrate seamlessly with **Home Assistant** (via Ingress, iframe, or standalone) and **Home Assistant To-do lists**.
 
 ## Features
 
-- Track inventory items with name, category, quantity, unit, and alert thresholds
-- Visual color-coding for inventory status (red for below alert level, yellow for unchecked items)
-- One-click quantity updates
-- Categorized inventory organization
-- Google Tasks integration for creating shopping lists from low inventory items
-- Mobile-responsive design
-- Simple, intuitive interface
-- SQLite database for easy deployment
+- **Inventory Check (`/`)**:
+  - Grouped by **Location** with collapsible sections (collapsed state remembered in `localStorage`).
+  - Large touch-friendly `+` / `−` stepper controls and instant `✓` save via AJAX.
+  - Color-coded status gradients: left side reflects stock level (`quantity` vs `alert_quantity`), right side reflects days since last checked.
+- **Shopping List & Home Assistant To-do Sync (`/shopping`)**:
+  - Automatically lists visible items at or below their minimum threshold (`quantity <= alert_quantity`), grouped by **Store**.
+  - One-click sync to **Home Assistant `todo.*` entities** (Local To-do, Google Tasks, Todoist, etc.) using configurable store-to-list mappings.
+- **Manage Items (`/inventory`)**:
+  - Wide responsive table with a **sticky header** on scroll.
+  - **Sortable columns** by **Name**, **Location** (default), and **Store** with pagination support.
+  - **Dropdowns** for **Unit**, **Location**, and **Store** backed by database IDs (`units`, `locations`, `stores` tables).
+  - **Visibility toggle** (eye icon) to hide/pause discontinued or seasonal items from the Inventory check and Shopping list without deleting them.
+  - Rename items in place without creating duplicates.
+- **Settings (`/settings`)**:
+  - Configure **Home Assistant** URL and Long-Lived Access Token (or automatic Supervisor API when running as an HA Add-on), with connection test and live `todo.*` discovery.
+  - Map each **Store** (plus a fallback default) to a Home Assistant `todo.*` list.
+  - **Add, rename (updates all linked items by ID), and delete** Units, Locations, and Stores.
+  - Optional external Calendar / Overview link in the navigation bar.
+- **i18n & Home Assistant Theme**:
+  - Full **Swedish (`sv`)** and **English (`en`)** support via JSON translation files (`app/translations/`), switchable in the navbar.
+  - Automatic Home Assistant theme & dark mode bridge (`app/static/ha-theme.js`).
 
-## Installation
+## Installation & Deployment
 
-### Local Setup
+### Docker Compose (Recommended)
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd inventera
-   ```
-
-2. Create a virtual environment and install dependencies:
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. Initialize the database:
-   ```
-   # For an empty database:
-   python create_test_db.py --empty
-   
-   # For a database with test data:
-   python create_test_db.py
-   ```
-
-4. Run the application:
-   ```
-   # For development mode with Google Tasks integration
-   FLASK_ENV=development python run.py
-   
-   # OR set the dev mode flag
-   INVENTERA_DEV_MODE=1 python run.py
-   
-   # For production mode (requires HTTPS for OAuth)
-   python run.py
-   ```
-
-5. Access the application at http://localhost:5000
-
-### Docker Setup
-
-1. Build the Docker image:
-   ```
-   docker build -t inventera .
-   ```
-
-2. Run the container:
-   ```
-   docker run -p 5000:5000 -d inventera
-   ```
-
-3. Access the application at http://localhost:5000
-
-## Usage
-
-- **Main Inventory View**: View all inventory items and quickly update quantities
-- **"Uppdatera" Button**: Click to mark an item as checked and update its last checked date
-- **Color Coding**:
-  - Red: Item quantity is below alert threshold
-  - Yellow: Item hasn't been checked recently
-
-## Development
-
-### Database Management
-
-The application uses SQLite databases in the following structure:
-
-- **Production database**: `instance/db.sqlite3` - Created automatically when running the app
-- **Test databases**: Located in `tests/data/` directory
-  - `test_db.sqlite3` - Contains sample test data
-  - `empty_db.sqlite3` - Empty database with schema only
-
-Database utilities:
-
-```bash
-# Create a test database with sample data:
-python create_test_db.py
-
-# Create an empty database (schema only):
-python create_test_db.py --empty
-
-# Specify a custom database path:
-python create_test_db.py --path /path/to/custom_db.sqlite3
+```yaml
+services:
+  inventory-app:
+    build: https://github.com/snis/inventera.git#v2.5
+    container_name: inventory-app
+    environment:
+      - TZ=Europe/Stockholm
+    volumes:
+      - /path/to/inventory-db:/app/instance
+    restart: unless-stopped
 ```
 
-If the production database doesn't exist, the application will create it automatically on startup.
+### Local Development
 
-## Technologies
+1. Clone the repository and create a virtual environment:
+   ```bash
+   git clone https://github.com/snis/inventera.git
+   cd inventera
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. Run the application:
+   ```bash
+   python run.py
+   ```
+3. Open `http://localhost:5000` in your browser.
 
-- Backend: Flask, SQLAlchemy
-- Database: SQLite
-- Frontend: HTML, CSS, JavaScript/jQuery
-- Container: Docker support
+On startup, `db.create_all()` and `ensure_option_schema_and_backfill()` automatically create tables, migrate missing columns (`unit_id`, `location_id`, `store_id`, `is_visible`), and backfill ID-backed options from existing items.
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `TZ` | Container timezone | System default |
+| `SECRET_KEY` | Flask session secret key | Random per-start |
+| `HA_URL` | Optional initial Home Assistant URL (overridden by Settings DB) | `""` |
+| `HA_TOKEN` | Optional initial Home Assistant token (overridden by Settings DB) | `""` |
+| `CALENDAR_URL` | Optional initial calendar link (overridden by Settings DB) | `""` |
 
 ## Project Structure
 
-```
+```text
 inventera/
-├── app/                    # Main application package
-│   ├── controllers/        # Route handlers
-│   ├── models/             # Database models
-│   ├── static/             # Static assets (CSS, JS)
-│   ├── templates/          # Jinja2 HTML templates
-│   └── utils/              # Helper utilities
-├── instance/               # Instance-specific data
-│   └── db.sqlite3          # Production database
-├── tests/                  # Test files
-│   └── data/               # Test databases
-│       ├── empty_db.sqlite3  # Empty schema
-│       └── test_db.sqlite3   # Sample data
-├── run.py                  # Application entry point
-├── app.py                  # Backwards compatibility module
-└── create_test_db.py       # Database management utility
+├── app/
+│   ├── __init__.py             # App factory, ProxyFix, i18n globals, DB init & backfill
+│   ├── controllers/
+│   │   ├── main.py             # Main inventory check view (/)
+│   │   ├── inventory.py        # Manage items (/inventory), AJAX update/add/delete/visibility, /shopping
+│   │   └── settings.py         # Settings (/settings), HA test, language switcher
+│   ├── models/
+│   │   ├── item.py             # Item, Unit, Location, Store SQLAlchemy models
+│   │   └── settings.py         # Settings key-value store & legacy CategoryTaskMapping
+│   ├── static/
+│   │   ├── style.css           # Responsive light/dark styling & HA theme variables
+│   │   └── ha-theme.js         # Parent HA iframe theme & dark mode bridge
+│   ├── templates/
+│   │   ├── includes/           # Navbar & pagination partials
+│   │   ├── index.html          # Inventory check view
+│   │   ├── inventory.html      # Manage items view
+│   │   ├── shopping.html       # Shopping list & HA Todo sync view
+│   │   ├── settings.html       # Admin settings view
+│   │   └── error.html          # Error page
+│   ├── translations/
+│   │   ├── sv.json             # Swedish translations
+│   │   └── en.json             # English translations
+│   └── utils/
+│       ├── ha_todo.py          # Home Assistant REST API client & todo.* sync
+│       ├── helpers.py          # Color helpers, grouping, schema backfill & option CRUD
+│       ├── i18n.py             # JSON translation loader & locale detection
+│       └── responses.py        # AJAX/HTML response helpers
+├── instance/                   # SQLite database directory (gitignored)
+├── run.py                      # Application entry point
+├── Dockerfile
+└── requirements.txt
 ```
 
-## Screenshots
+## Notes
 
-![Home Screen](screenshots/index.png)
-![Inventory Screen](screenshots/inventory.png)
-
-## Google Tasks Integration
-
-The application includes integration with Google Tasks to create shopping lists from low inventory items.
-
-### Setup
-
-1. Access the settings page by adding `?admin=true` to the URL (e.g., `http://localhost:5000/?admin=true`)
-2. Follow the instructions to:
-   - Create a Google Cloud project
-   - Enable the Google Tasks API
-   - Configure OAuth consent screen
-   - Create OAuth 2.0 credentials
-   - Enter the credentials in the settings page
-
-### Security
-
-The Google Tasks integration stores sensitive information:
-- OAuth client credentials (client ID and secret)
-- OAuth access and refresh tokens
-
-These are stored in:
-1. The SQLite database (`Settings` table)
-2. A token file in the `instance` directory
-
-For security:
-- The `.gitignore` file is configured to exclude database files and token files
-- Never commit the `db.sqlite3` file or the `instance` directory to GitHub
-- In production, always use HTTPS
-- The application automatically requires HTTPS in production
-- For local development, use `FLASK_ENV=development` or `INVENTERA_DEV_MODE=1`
-
-### Development vs Production
-
-For **local development**:
-```bash
-# Enable insecure transport for OAuth testing locally
-FLASK_ENV=development python run.py
-# or
-INVENTERA_DEV_MODE=1 python run.py
-```
-
-For **production**:
-```bash
-# Standard launch (requires HTTPS for OAuth)
-python run.py
-```
-
-## License
-
-[Insert appropriate license information here]
+- Legacy Google Tasks OAuth documentation from v1.x is preserved in [GTASKS-README.md](GTASKS-README.md) for historical reference; v2.x uses Home Assistant `todo.*` entities directly.
