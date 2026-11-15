@@ -104,10 +104,26 @@
     <script>
         const T = {{ js_translations|tojson }};
         $(document).ready(function() {
+            function safeStorageGet(key) {
+                try {
+                    return window.localStorage.getItem(key);
+                } catch (_err) {
+                    return null;
+                }
+            }
+
+            function safeStorageSet(key, value) {
+                try {
+                    window.localStorage.setItem(key, value);
+                } catch (_err) {
+                    // Ignore storage errors when localStorage is blocked or full
+                }
+            }
+
             // Restore collapsed state from localStorage
             $('.location-header').each(function() {
                 const targetId = $(this).data('target');
-                const isCollapsed = localStorage.getItem('collapsed_' + targetId);
+                const isCollapsed = safeStorageGet('collapsed_' + targetId);
                 if (isCollapsed === 'true') {
                     $('#' + targetId).hide();
                     $(this).find('.accordion-icon i').removeClass('fa-chevron-down').addClass('fa-chevron-right');
@@ -125,12 +141,12 @@
                     content.slideUp(200);
                     icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
                     $(this).addClass('is-collapsed');
-                    localStorage.setItem('collapsed_' + targetId, 'true');
+                    safeStorageSet('collapsed_' + targetId, 'true');
                 } else {
                     content.slideDown(200);
                     icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
                     $(this).removeClass('is-collapsed');
-                    localStorage.setItem('collapsed_' + targetId, 'false');
+                    safeStorageSet('collapsed_' + targetId, 'false');
                 }
             });
 
@@ -143,7 +159,7 @@
                     $('.location-header').addClass('is-collapsed');
                     $(this).text(T.index.expand_all);
                     $('.location-header').each(function() {
-                        localStorage.setItem('collapsed_' + $(this).data('target'), 'true');
+                        safeStorageSet('collapsed_' + $(this).data('target'), 'true');
                     });
                 } else {
                     $('.location-content').slideDown(200);
@@ -151,7 +167,7 @@
                     $('.location-header').removeClass('is-collapsed');
                     $(this).text(T.index.collapse_all);
                     $('.location-header').each(function() {
-                        localStorage.setItem('collapsed_' + $(this).data('target'), 'false');
+                        safeStorageSet('collapsed_' + $(this).data('target'), 'false');
                     });
                 }
             });

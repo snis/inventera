@@ -674,3 +674,82 @@ def test_index_renders_save_sequencing_and_version_attr(app, client):
     assert 'data-version="1"' in html
     assert "saveSeq" in html
     assert "inFlightSave" in html
+
+
+def test_ha_sync_empty_unit_and_parenthesized_unit_no_duplicates(app):
+    with app.app_context():
+        u_paren = Unit(name="förp (10 st)")
+        u_st = Unit(name="st")
+        db.session.add_all([u_paren, u_st])
+        db.session.flush()
+        db.session.add_all(
+            [
+                Item(name="Salt", quantity=0, alert_quantity=1, unit="", unit_id=None),
+                Item(
+                    name="Pasta",
+                    quantity=1,
+                    alert_quantity=2,
+                    unit="förp (10 st)",
+                    unit_id=u_paren.id,
+                ),
+                Item(
+                    name="Vatten (500 ml)",
+                    quantity=0,
+                    alert_quantity=1,
+                    unit="st",
+                    unit_id=u_st.id,
+                ),
+            ]
+        )
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+
+        ha_items: list[str] = []
+
+        def fake_get_existing(_self, _entity_id):
+            return [s.casefold() for s in ha_items]
+
+        def fake_add(_self, _entity_id, title, _desc):
+            ha_items.append(title)
+            return True
+
+        with (
+            patch(
+                "app.services.shopping_sync.HomeAssistantTodoClient.get_existing_items",
+                fake_get_existing,
+            ),
+            patch(
+                "app.services.shopping_sync.HomeAssistantTodoClient.add_todo_item",
+                fake_add,
+            ),
+        ):
+            first = sync_low_inventory_to_ha()
+            assert first["synced_count"] == 3
+            assert "Salt (0)" in ha_items
+            assert "Pasta (1 förp (10 st))" in ha_items
+            assert "Vatten (500 ml) (0 st)" in ha_items
+
+            second = sync_low_inventory_to_ha()
+            assert second["synced_count"] == 0
+            assert second["skipped_count"] == 3
+            assert len(ha_items) == 3
+
+
+def test_index_uses_safe_localstorage_wrappers(app, client):
+    html = client.get("/").get_data(as_text=True)
+    assert "safeStorageGet('collapsed_'" in html
+    assert "safeStorageSet('collapsed_'" in html
+    assert "localStorage.getItem('collapsed_" not in html
+    assert "localStorage.setItem('collapsed_" not in html
+
+
+def test_set_language_rejects_external_referrer(app, client):
+    ext = client.get("/set_language/en", headers={"Referer": "https://evil.example/phish"})
+    assert ext.status_code == 302
+    assert ext.headers["Location"] == "/index"
+
+    same = client.get("/set_language/sv", headers={"Referer": "http://localhost/inventory"})
+    assert same.status_code == 302
+    assert same.headers["Location"] == "http://localhost/inventory"

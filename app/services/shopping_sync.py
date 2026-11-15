@@ -14,7 +14,7 @@ from app.utils.i18n import t
 
 logger = logging.getLogger(__name__)
 _sync_lock = threading.Lock()
-_QTY_UNIT_SUFFIX_RE = re.compile(r"\s+\(\d+(?:[.,]\d+)?\s+[^()]+\)$")
+_QTY_UNIT_SUFFIX_RE = re.compile(r"\s+\(\d+(?:[.,]\d+)?(?:\s+(?:[^()]|\([^()]*\))*)?\)$")
 
 
 def _extract_base_name(summary: str) -> str:
@@ -111,12 +111,15 @@ def _execute_sync(
             skipped.append(clean_name)
             continue
 
-        task_title = f"{clean_name} ({item.quantity} {item.unit})"
+        unit = (item.unit or "").strip()
+        qty_display = f"{item.quantity} {unit}" if unit else f"{item.quantity}"
+        min_display = f"{item.alert_quantity} {unit}" if unit else f"{item.alert_quantity}"
+        task_title = f"{clean_name} ({qty_display})"
         description = (
             f"{t('manage.location')}: {item.location or t('common.other')}\n"
             f"{t('manage.store')}: {store or t('common.other')}\n"
-            f"{t('shopping.col_current')}: {item.quantity} {item.unit}\n"
-            f"{t('shopping.col_min')}: {item.alert_quantity} {item.unit}"
+            f"{t('shopping.col_current')}: {qty_display}\n"
+            f"{t('shopping.col_min')}: {min_display}"
         )
 
         if client.add_todo_item(target_entity, task_title, description):

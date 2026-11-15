@@ -5,6 +5,7 @@ language selection, and general app settings.
 """
 
 import json
+from urllib.parse import urlsplit
 
 from flask import (
     Blueprint,
@@ -40,6 +41,22 @@ from app.utils.i18n import SUPPORTED_LANGUAGES, t
 settings_bp = Blueprint("settings", __name__)
 
 
+def _safe_referrer_url() -> str:
+    """Return request.referrer only if it points to the same host or a local path."""
+    fallback = url_for("main.index")
+    ref = (request.referrer or "").strip()
+    if not ref:
+        return fallback
+    parsed = urlsplit(ref)
+    if not parsed.scheme and not parsed.netloc:
+        if parsed.path.startswith("/") and not parsed.path.startswith("//"):
+            return ref
+        return fallback
+    if parsed.scheme in ("http", "https") and parsed.netloc == request.host:
+        return ref
+    return fallback
+
+
 @settings_bp.route("/set_language/<lang>")
 def set_language(lang: str):
     """Switch active UI language and persist in session and cookie."""
@@ -47,8 +64,7 @@ def set_language(lang: str):
     if clean_lang not in SUPPORTED_LANGUAGES:
         clean_lang = "en"
     session["lang"] = clean_lang
-    target = request.referrer or url_for("main.index")
-    resp = make_response(redirect(target))
+    resp = make_response(redirect(_safe_referrer_url()))
     resp.set_cookie("inventera_lang", clean_lang, max_age=60 * 60 * 24 * 365)
     return resp
 
