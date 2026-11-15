@@ -3,6 +3,7 @@
 Migration script to add location and store columns and populate them
 with user's updated data from Grocy.
 """
+
 import os
 import sqlite3
 
@@ -43,8 +44,9 @@ MAPPINGS = [
     {"name": "Sköljmedel", "store": "ICA", "location": "Förråd"},
     {"name": "Soppåsar", "store": "ICA", "location": "Kök"},
     {"name": "Tvättmedel (flytande)", "store": "ICA", "location": "SkjutdörrsGarderob"},
-    {"name": "WC rengöring (WC Duck)", "store": "ICA", "location": "Förråd"}
+    {"name": "WC rengöring (WC Duck)", "store": "ICA", "location": "Förråd"},
 ]
+
 
 def migrate(db_path="instance/db.sqlite3"):
     if not os.path.exists(db_path):
@@ -68,12 +70,16 @@ def migrate(db_path="instance/db.sqlite3"):
 
     updated = 0
     for m in MAPPINGS:
-        c.execute("UPDATE item SET store = ?, location = ? WHERE TRIM(name) = TRIM(?)", (m["store"], m["location"], m["name"]))
+        c.execute(
+            "UPDATE item SET store = ?, location = ? WHERE TRIM(name) = TRIM(?)",
+            (m["store"], m["location"], m["name"]),
+        )
         updated += c.rowcount
 
     conn.commit()
     conn.close()
     print(f"Migration completed! Updated {updated} items.")
+
 
 if __name__ == "__main__":
     migrate()

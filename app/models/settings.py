@@ -1,6 +1,7 @@
 """
 Settings model for the inventory application.
 """
+
 from app import db
 
 
@@ -8,13 +9,14 @@ class Settings(db.Model):
     """
     Model representing application settings.
     """
+
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(64), nullable=False, unique=True)
     value = db.Column(db.Text, nullable=True)
 
     def __repr__(self) -> str:
         """String representation of the setting"""
-        return f'<Setting: {self.key}>'
+        return f"<Setting: {self.key}>"
 
     @classmethod
     def get(cls, key: str, default=None) -> str:
