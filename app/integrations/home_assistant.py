@@ -92,11 +92,8 @@ class HomeAssistantTodoClient:
             logger.error(f"Error discovering todo entities: {str(e)}")
             return []
 
-    def get_existing_items(self, entity_id: str) -> list[str] | None:
-        """
-        Get existing active items from a HA to-do list.
-        Returns normalized item summaries, or None if the list could not be read.
-        """
+    def _fetch_active_todo_items(self, entity_id: str) -> list[dict[str, str]] | None:
+        """Retrieve active ('needs_action') to-do entries with uid, summary, and description."""
         try:
             url = f"{self.base_url}/api/services/todo/get_items?return_response"
             resp = requests.post(
@@ -118,7 +115,11 @@ class HomeAssistantTodoClient:
                     logger.warning(f"Malformed items list in response for {entity_id}")
                     return None
                 return [
-                    item.get("summary", "").strip().casefold()
+                    {
+                        "uid": str(item.get("uid") or ""),
+                        "summary": str(item.get("summary") or "").strip().casefold(),
+                        "description": str(item.get("description") or ""),
+                    }
                     for item in entity_data["items"]
                     if isinstance(item, dict) and item.get("status") == "needs_action"
                 ]
@@ -128,6 +129,16 @@ class HomeAssistantTodoClient:
         except Exception as e:
             logger.warning(f"Could not retrieve existing tasks from {entity_id}: {str(e)}")
         return None
+
+    def get_existing_items(self, entity_id: str) -> list[str] | None:
+        """
+        Get existing active items from a HA to-do list.
+        Returns normalized item summaries, or None if the list could not be read.
+        """
+        entries = self._fetch_active_todo_items(entity_id)
+        if entries is None:
+            return None
+        return [entry["summary"] for entry in entries]
 
     def add_todo_item(self, entity_id: str, summary: str, description: str | None = None) -> bool:
         """Add an item to a Home Assistant to-do list."""

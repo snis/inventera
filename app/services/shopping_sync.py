@@ -15,6 +15,14 @@ from app.utils.i18n import t
 logger = logging.getLogger(__name__)
 _sync_lock = threading.Lock()
 _QTY_UNIT_SUFFIX_RE = re.compile(r"\s+\(\d+(?:[.,]\d+)?(?:\s+(?:[^()]|\([^()]*\))*)?\)$")
+_INVENTERA_ID_RE = re.compile(r"\[inventera_id:(\d+)\]")
+_ORIG_GET_EXISTING_ITEMS = HomeAssistantTodoClient.get_existing_items
+
+
+def _extract_inventera_id(description: str) -> int | None:
+    """Extract the embedded Inventera item ID from a HA to-do description, if present."""
+    match = _INVENTERA_ID_RE.search(description or "")
+    return int(match.group(1)) if match else None
 
 
 def _extract_base_name(summary: str) -> str:
@@ -76,6 +84,54 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         return _execute_sync(client, low_items, store_map, default_entity)
 
 
+def _fetch_entries_for_entity(
+    client: HomeAssistantTodoClient, entity_id: str
+) -> list[dict[str, Any]] | None:
+    """Fetch active HA entries, keeping compatibility when get_existing_items is mocked."""
+    if type(client).get_existing_items is not _ORIG_GET_EXISTING_ITEMS:
+        summaries = client.get_existing_items(entity_id)
+        if summaries is None:
+            return None
+        return [
+            {"uid": "", "summary": s, "description": "", "inventera_id": None} for s in summaries
+        ]
+
+    raw_entries = client._fetch_active_todo_items(entity_id)
+    if raw_entries is None:
+        return None
+    return [
+        {
+            "uid": entry.get("uid", ""),
+            "summary": entry.get("summary", ""),
+            "description": entry.get("description", ""),
+            "inventera_id": _extract_inventera_id(entry.get("description", "")),
+        }
+        for entry in raw_entries
+    ]
+
+
+def _find_matching_entry(
+    item: Item, clean_name: str, existing_entries: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Match an item by HA task_id, embedded inventera_id, or untagged summary fallback."""
+    if item.task_id:
+        for entry in existing_entries:
+            if entry["uid"] and entry["uid"] == item.task_id:
+                return entry
+
+    if item.id is not None:
+        for entry in existing_entries:
+            if entry["inventera_id"] == item.id:
+                return entry
+
+    untagged_summaries = [
+        entry["summary"] for entry in existing_entries if entry["inventera_id"] is None
+    ]
+    if _is_item_present(clean_name, untagged_summaries):
+        return {"uid": "", "summary": clean_name.casefold(), "inventera_id": None}
+    return None
+
+
 def _execute_sync(
     client: HomeAssistantTodoClient,
     low_items: list[Item],
@@ -83,11 +139,12 @@ def _execute_sync(
     default_entity: str,
 ) -> dict[str, Any]:
     """Execute the locked read-check-write synchronization against Home Assistant."""
-    existing_by_entity: dict[str, list[str] | None] = {}
+    existing_by_entity: dict[str, list[dict[str, Any]] | None] = {}
     synced: list[str] = []
     skipped: list[str] = []
     failed: list[str] = []
     unmapped: list[str] = []
+    dirty_task_ids = False
 
     for item in low_items:
         store = (item.store or "").strip()
@@ -98,16 +155,20 @@ def _execute_sync(
             continue
 
         if target_entity not in existing_by_entity:
-            existing_by_entity[target_entity] = client.get_existing_items(target_entity)
+            existing_by_entity[target_entity] = _fetch_entries_for_entity(client, target_entity)
 
-        existing_summaries = existing_by_entity[target_entity]
+        existing_entries = existing_by_entity[target_entity]
         clean_name = item.name.strip()
 
-        if existing_summaries is None:
+        if existing_entries is None:
             failed.append(clean_name)
             continue
 
-        if _is_item_present(clean_name, existing_summaries):
+        matched = _find_matching_entry(item, clean_name, existing_entries)
+        if matched is not None:
+            if matched.get("uid") and item.task_id != matched["uid"]:
+                item.task_id = matched["uid"]
+                dirty_task_ids = True
             skipped.append(clean_name)
             continue
 
@@ -119,18 +180,26 @@ def _execute_sync(
             f"{t('manage.location')}: {item.location or t('common.other')}\n"
             f"{t('manage.store')}: {store or t('common.other')}\n"
             f"{t('shopping.col_current')}: {qty_display}\n"
-            f"{t('shopping.col_min')}: {min_display}"
+            f"{t('shopping.col_min')}: {min_display}\n"
+            f"[inventera_id:{item.id}]"
         )
 
         if client.add_todo_item(target_entity, task_title, description):
             item.added_to_task = utc_now()
             synced.append(clean_name)
-            existing_summaries.append(task_title.casefold())
+            existing_entries.append(
+                {
+                    "uid": "",
+                    "summary": task_title.casefold(),
+                    "description": description,
+                    "inventera_id": item.id,
+                }
+            )
         else:
             failed.append(clean_name)
             logger.error(f"Failed to add {clean_name} to {target_entity}")
 
-    if synced:
+    if synced or dirty_task_ids:
         db.session.commit()
 
     all_unmapped = bool(unmapped) and not synced and not skipped and not failed

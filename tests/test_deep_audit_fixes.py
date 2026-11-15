@@ -14,7 +14,7 @@ from sqlalchemy import text
 from app import create_app
 from app.extensions import db
 from app.integrations.home_assistant import get_store_todo_map, save_store_todo_map
-from app.models.item import Item, Store, Unit
+from app.models.item import Item, Location, Store, Unit
 from app.models.settings import Settings
 from app.services.options import save_managed_options_crud
 from app.services.shopping_sync import _is_item_present, sync_low_inventory_to_ha
@@ -753,3 +753,103 @@ def test_set_language_rejects_external_referrer(app, client):
     same = client.get("/set_language/sv", headers={"Referer": "http://localhost/inventory"})
     assert same.status_code == 302
     assert same.headers["Location"] == "http://localhost/inventory"
+
+
+def test_ha_sync_distinguishes_batteri_and_batteri_4_st_by_item_id(app):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item1 = Item(name="Batteri", quantity=4, alert_quantity=5, unit="st", unit_id=u.id)
+        item2 = Item(name="Batteri (4 st)", quantity=0, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add_all([item1, item2])
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+        id1, id2 = item1.id, item2.id
+
+        ha_store: list[dict[str, str]] = []
+
+        class FakeResp:
+            def __init__(self, status_code: int, payload: dict):
+                self.status_code = status_code
+                self._payload = payload
+
+            def json(self):
+                return self._payload
+
+        def fake_post(url, headers=None, json=None, timeout=5):
+            if "todo/get_items" in url:
+                return FakeResp(200, {"service_response": {"todo.shopping": {"items": ha_store}}})
+            if "todo/add_item" in url:
+                ha_store.append(
+                    {
+                        "uid": f"uid-{len(ha_store) + 1}",
+                        "summary": json["item"],
+                        "description": json.get("description", ""),
+                        "status": "needs_action",
+                    }
+                )
+                return FakeResp(200, {})
+            raise AssertionError(f"Unexpected URL: {url}")
+
+        with patch("app.integrations.home_assistant.requests.post", fake_post):
+            first = sync_low_inventory_to_ha()
+            assert first["synced_count"] == 2
+            assert len(ha_store) == 2
+            assert f"[inventera_id:{id1}]" in ha_store[0]["description"]
+            assert f"[inventera_id:{id2}]" in ha_store[1]["description"]
+
+            second = sync_low_inventory_to_ha()
+            assert second["synced_count"] == 0
+            assert second["skipped_count"] == 2
+            assert db.session.get(Item, id1).task_id == "uid-1"
+            assert db.session.get(Item, id2).task_id == "uid-2"
+
+
+def test_index_location_storage_key_is_stable_across_reordering(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        loc_forrad = Location(name="Förråd")
+        db.session.add_all([u, loc_forrad])
+        db.session.flush()
+        db.session.add(
+            Item(
+                name="Skruv",
+                quantity=1,
+                alert_quantity=0,
+                unit="st",
+                unit_id=u.id,
+                location="Förråd",
+                location_id=loc_forrad.id,
+            )
+        )
+        db.session.commit()
+        forrad_id = loc_forrad.id
+
+    html_before = client.get("/").get_data(as_text=True)
+    assert f'data-target="content-1" data-storage-key="loc-{forrad_id}"' in html_before
+
+    with app.app_context():
+        u = Unit.query.first()
+        loc_badrum = Location(name="Badrum")
+        db.session.add(loc_badrum)
+        db.session.flush()
+        db.session.add(
+            Item(
+                name="Tvål",
+                quantity=1,
+                alert_quantity=0,
+                unit="st",
+                unit_id=u.id,
+                location="Badrum",
+                location_id=loc_badrum.id,
+            )
+        )
+        db.session.commit()
+        badrum_id = loc_badrum.id
+
+    html_after = client.get("/").get_data(as_text=True)
+    assert f'data-target="content-1" data-storage-key="loc-{badrum_id}"' in html_after
+    assert f'data-target="content-2" data-storage-key="loc-{forrad_id}"' in html_after

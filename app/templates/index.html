@@ -17,8 +17,9 @@
         <!-- Locations Accordion -->
         <div class="accordion-container">
             {% for location, items in items_by_location.items() %}
+                {% set loc_storage_key = 'loc-' ~ items[0].location_id if items and items[0].location_id else ('loc-other' if location == t('common.other') else 'loc-name-' ~ location) %}
                 <div class="location-group" id="group-{{ loop.index }}">
-                    <div class="location-header" data-target="content-{{ loop.index }}">
+                    <div class="location-header" data-target="content-{{ loop.index }}" data-storage-key="{{ loc_storage_key }}">
                         <div class="location-title">
                             <span class="accordion-icon"><i class="fa fa-chevron-down"></i></span>
                             <span class="location-name">{{ location }}</span>
@@ -123,7 +124,8 @@
             // Restore collapsed state from localStorage
             $('.location-header').each(function() {
                 const targetId = $(this).data('target');
-                const isCollapsed = safeStorageGet('collapsed_' + targetId);
+                const storageKey = $(this).data('storage-key') || targetId;
+                const isCollapsed = safeStorageGet('collapsed_' + storageKey);
                 if (isCollapsed === 'true') {
                     $('#' + targetId).hide();
                     $(this).find('.accordion-icon i').removeClass('fa-chevron-down').addClass('fa-chevron-right');
@@ -134,6 +136,7 @@
             // Accordion toggle
             $('.location-header').click(function() {
                 const targetId = $(this).data('target');
+                const storageKey = $(this).data('storage-key') || targetId;
                 const content = $('#' + targetId);
                 const icon = $(this).find('.accordion-icon i');
 
@@ -141,12 +144,12 @@
                     content.slideUp(200);
                     icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
                     $(this).addClass('is-collapsed');
-                    safeStorageSet('collapsed_' + targetId, 'true');
+                    safeStorageSet('collapsed_' + storageKey, 'true');
                 } else {
                     content.slideDown(200);
                     icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
                     $(this).removeClass('is-collapsed');
-                    safeStorageSet('collapsed_' + targetId, 'false');
+                    safeStorageSet('collapsed_' + storageKey, 'false');
                 }
             });
 
@@ -159,7 +162,8 @@
                     $('.location-header').addClass('is-collapsed');
                     $(this).text(T.index.expand_all);
                     $('.location-header').each(function() {
-                        safeStorageSet('collapsed_' + $(this).data('target'), 'true');
+                        const storageKey = $(this).data('storage-key') || $(this).data('target');
+                        safeStorageSet('collapsed_' + storageKey, 'true');
                     });
                 } else {
                     $('.location-content').slideDown(200);
@@ -167,7 +171,8 @@
                     $('.location-header').removeClass('is-collapsed');
                     $(this).text(T.index.collapse_all);
                     $('.location-header').each(function() {
-                        safeStorageSet('collapsed_' + $(this).data('target'), 'false');
+                        const storageKey = $(this).data('storage-key') || $(this).data('target');
+                        safeStorageSet('collapsed_' + storageKey, 'false');
                     });
                 }
             });
