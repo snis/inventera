@@ -318,25 +318,6 @@ def update_items():
         )
 
 
-@inventory_bp.route('/toggle_visibility/<int:item_id>', methods=['POST'])
-def toggle_visibility(item_id: int):
-    """Toggle whether an item is visible on the Inventera and shopping list pages."""
-    try:
-        item = Item.query.get(item_id)
-        if not item:
-            return jsonify({'status': 'error', 'message': t('api.item_not_found')}), 404
-        item.is_visible = not bool(item.is_visible)
-        db.session.commit()
-        return jsonify({
-            'status': 'success',
-            'item_id': item.id,
-            'is_visible': bool(item.is_visible)
-        })
-    except Exception as e:
-        current_app.logger.error(f"Error toggling visibility for {item_id}: {str(e)}")
-        return jsonify({'status': 'error', 'message': t('common.error_generic')}), 500
-
-
 @inventory_bp.route('/remove_item/<int:item_id>', methods=['POST'])
 def remove_item(item_id):
     """
