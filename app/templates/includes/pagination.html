@@ -6,7 +6,7 @@
     </div>
     <div class="page-controls">
         {% if pagination.has_prev %}
-            <a href="{{ url_for(request.endpoint, page=pagination.page-1) }}" class="page-link">&laquo; Föregående</a>
+            <a href="{{ url_for(request.endpoint, page=pagination.page-1, sort=sort_by, dir=sort_dir) if sort_by is defined else url_for(request.endpoint, page=pagination.page-1) }}" class="page-link">&laquo; Föregående</a>
         {% else %}
             <span class="page-link disabled">&laquo; Föregående</span>
         {% endif %}
@@ -15,12 +15,12 @@
             {% if p == pagination.page %}
                 <span class="page-link active">{{ p }}</span>
             {% else %}
-                <a href="{{ url_for(request.endpoint, page=p) }}" class="page-link">{{ p }}</a>
+                <a href="{{ url_for(request.endpoint, page=p, sort=sort_by, dir=sort_dir) if sort_by is defined else url_for(request.endpoint, page=p) }}" class="page-link">{{ p }}</a>
             {% endif %}
         {% endfor %}
         
         {% if pagination.has_next %}
-            <a href="{{ url_for(request.endpoint, page=pagination.page+1) }}" class="page-link">Nästa &raquo;</a>
+            <a href="{{ url_for(request.endpoint, page=pagination.page+1, sort=sort_by, dir=sort_dir) if sort_by is defined else url_for(request.endpoint, page=pagination.page+1) }}" class="page-link">Nästa &raquo;</a>
         {% else %}
             <span class="page-link disabled">Nästa &raquo;</span>
         {% endif %}

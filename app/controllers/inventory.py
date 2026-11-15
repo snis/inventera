@@ -136,8 +136,23 @@ def inventory(page: int = 1):
     try:
         items_per_page = 50  # Default from requirements
 
-        # Get items sorted alphabetically for the current page
-        query = Item.query.order_by(db.func.lower(Item.name))
+        sort_by = request.args.get('sort', 'location')
+        if sort_by not in ('name', 'location', 'store'):
+            sort_by = 'location'
+        sort_dir = request.args.get('dir', 'asc')
+        if sort_dir not in ('asc', 'desc'):
+            sort_dir = 'asc'
+
+        sort_columns = {
+            'name': db.func.lower(Item.name),
+            'location': db.func.lower(db.func.coalesce(Item.location, '')),
+            'store': db.func.lower(db.func.coalesce(Item.store, '')),
+        }
+        primary_col = sort_columns[sort_by]
+        primary_order = primary_col.desc() if sort_dir == 'desc' else primary_col.asc()
+
+        # Sort by chosen column (default: location), with item name as secondary sort
+        query = Item.query.order_by(primary_order, db.func.lower(Item.name).asc())
         total_items = query.count()
         total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
         items = query.limit(items_per_page).offset((page - 1) * items_per_page).all()
@@ -145,6 +160,8 @@ def inventory(page: int = 1):
         return render_template(
             'inventory.html',
             items=items,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
             distinct_units=get_managed_options('unit'),
             distinct_locations=get_managed_options('location'),
             distinct_stores=get_managed_options('store'),

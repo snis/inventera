@@ -1282,3 +1282,23 @@ button:hover {
   background: var(--input-bg);
   color: var(--text-color);
 }
+
+/* Sortable column headers in Manage Items */
+.sort-header {
+  color: var(--table-header-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.sort-header:hover {
+  color: var(--table-header-color);
+  text-decoration: underline;
+}
+
+.sort-icon {
+  font-size: 0.8em;
+  opacity: 0.85;
+}

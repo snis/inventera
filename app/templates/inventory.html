@@ -23,12 +23,27 @@
         <table class="mobile-table-layout inventory-table">
             <thead>
                 <tr>
-                    <th>{{ t('manage.name') }}</th>
+                    <th>
+                        <a class="sort-header" href="{{ url_for('inventory.inventory', page=1, sort='name', dir='desc' if sort_by == 'name' and sort_dir == 'asc' else 'asc') }}">
+                            {{ t('manage.name') }}
+                            <span class="sort-icon">{% if sort_by == 'name' %}{{ '▼' if sort_dir == 'desc' else '▲' }}{% else %}⇅{% endif %}</span>
+                        </a>
+                    </th>
                     <th>{{ t('manage.quantity') }}</th>
                     <th>{{ t('manage.alert_quantity') }}</th>
                     <th>{{ t('manage.unit') }}</th>
-                    <th>{{ t('manage.location') }}</th>
-                    <th>{{ t('manage.store') }}</th>
+                    <th>
+                        <a class="sort-header" href="{{ url_for('inventory.inventory', page=1, sort='location', dir='desc' if sort_by == 'location' and sort_dir == 'asc' else 'asc') }}">
+                            {{ t('manage.location') }}
+                            <span class="sort-icon">{% if sort_by == 'location' %}{{ '▼' if sort_dir == 'desc' else '▲' }}{% else %}⇅{% endif %}</span>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort-header" href="{{ url_for('inventory.inventory', page=1, sort='store', dir='desc' if sort_by == 'store' and sort_dir == 'asc' else 'asc') }}">
+                            {{ t('manage.store') }}
+                            <span class="sort-icon">{% if sort_by == 'store' %}{{ '▼' if sort_dir == 'desc' else '▲' }}{% else %}⇅{% endif %}</span>
+                        </a>
+                    </th>
                     <th>{{ t('manage.last_checked') }}</th>
                     <th>{{ t('manage.actions') }}</th>
                 </tr>
