@@ -332,7 +332,7 @@ def save_managed_options_crud(
     for name in new_names:
         get_or_create_option(field_name, name)
 
-    db.session.commit()
+    db.session.flush()
 
     if store_renames:
         from app.utils.ha_todo import get_store_todo_map, save_store_todo_map

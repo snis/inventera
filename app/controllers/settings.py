@@ -18,6 +18,7 @@ from flask import (
     url_for,
 )
 
+from app import db
 from app.models.settings import Settings
 from app.utils.ha_todo import (
     HomeAssistantTodoClient,
@@ -93,22 +94,62 @@ def settings():
 
 @settings_bp.route("/settings/save", methods=["POST"])
 def save_settings():
-    """Persist Home Assistant connection, store mappings, and general settings."""
+    """Persist Home Assistant connection, store mappings, and general settings atomically."""
     try:
+        cfg_url, _, is_addon = get_ha_config()
         ha_url = (request.form.get("ha_url") or "").strip().rstrip("/")
         ha_token = (request.form.get("ha_token") or "").strip()
         default_todo = (request.form.get("ha_default_todo_entity") or "").strip()
         calendar_url = (request.form.get("calendar_url") or "").strip()
 
-        if ha_url:
-            Settings.set("ha_url", ha_url)
-        if ha_token:
-            Settings.set("ha_token", ha_token)
+        # Validate standalone URL change requires explicit token
+        if not is_addon and ha_url and ha_url != cfg_url and not ha_token:
+            return (
+                render_template("error.html", message=t("api.ha_token_required_for_url")),
+                400,
+            )
+
+        # Validate & parse option CRUD payloads before mutating database
+        parsed_options: dict[str, tuple[dict[int, str], list[str], list[int]]] = {}
+        for field in OPTION_FIELDS:
+            renames: dict[int, str] = {}
+            prefix = f"opt_{field}_"
+            for key, val in request.form.items():
+                if key.startswith(prefix):
+                    try:
+                        opt_id = int(key[len(prefix) :])
+                    except ValueError as exc:
+                        raise ValueError(f"Invalid option ID for {field}: {key}") from exc
+                    renames[opt_id] = val
+
+            delete_ids: list[int] = []
+            raw_del = request.form.get(f"opt_del_{field}")
+            if raw_del:
+                parsed_del = json.loads(raw_del)
+                if not isinstance(parsed_del, list):
+                    raise ValueError(f"Invalid delete list for {field}")
+                delete_ids = [int(x) for x in parsed_del]
+
+            new_names: list[str] = []
+            raw_new = request.form.get(f"opt_new_{field}")
+            if raw_new:
+                parsed_new = json.loads(raw_new)
+                if not isinstance(parsed_new, list):
+                    raise ValueError(f"Invalid new options list for {field}")
+                new_names = [str(x) for x in parsed_new]
+
+            parsed_options[field] = (renames, new_names, delete_ids)
+
+        # Apply all changes within a single transaction
+        if not is_addon:
+            if ha_url:
+                Settings.set("ha_url", ha_url)
+            if ha_token:
+                Settings.set("ha_token", ha_token)
 
         Settings.set("ha_default_todo_entity", default_todo)
         Settings.set("calendar_url", calendar_url)
 
-        # Save dynamic store -> todo.* mappings
         new_map = {}
         for key, value in request.form.items():
             if key.startswith("store_map_"):
@@ -117,51 +158,46 @@ def save_settings():
                     new_map[store_name] = value.strip()
         save_store_todo_map(new_map)
 
-        # Save ID-backed Unit, Location, Store options (renames, additions, deletions)
-        for field in OPTION_FIELDS:
-            renames = {}
-            prefix = f"opt_{field}_"
-            for key, val in request.form.items():
-                if key.startswith(prefix):
-                    try:
-                        opt_id = int(key[len(prefix) :])
-                        renames[opt_id] = val
-                    except ValueError:
-                        pass
-
-            delete_ids = []
-            raw_del = request.form.get(f"opt_del_{field}")
-            if raw_del:
-                try:
-                    delete_ids = [int(x) for x in json.loads(raw_del)]
-                except (ValueError, TypeError):
-                    pass
-
-            new_names = []
-            raw_new = request.form.get(f"opt_new_{field}")
-            if raw_new:
-                try:
-                    parsed_new = json.loads(raw_new)
-                    if isinstance(parsed_new, list):
-                        new_names = [str(x) for x in parsed_new]
-                except (ValueError, TypeError):
-                    pass
-
+        for field, (renames, new_names, delete_ids) in parsed_options.items():
             save_managed_options_crud(field, renames, new_names, delete_ids)
 
+        db.session.commit()
         return redirect(url_for("settings.settings", saved="1"))
-    except Exception as e:
-        current_app.logger.error(f"Error saving settings: {str(e)}")
-        return render_template("error.html", message=t("common.error_generic"))
+    except ValueError as e:
+        db.session.rollback()
+        current_app.logger.warning(f"Validation error saving settings: {e}")
+        return render_template("error.html", message=str(e)), 400
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error saving settings")
+        return render_template("error.html", message=t("common.error_generic")), 500
 
 
 @settings_bp.route("/settings/test_ha", methods=["POST"])
 def test_ha():
     """Test Home Assistant connection and return discovered todo.* entities as JSON."""
     try:
-        cfg_url, cfg_token, _ = get_ha_config()
-        ha_url = (request.form.get("ha_url") or cfg_url).strip().rstrip("/")
-        ha_token = (request.form.get("ha_token") or cfg_token).strip()
+        cfg_url, cfg_token, is_addon = get_ha_config()
+        if is_addon:
+            # In add-on mode, Supervisor URL & token are fixed and never sent to user-supplied URLs
+            ha_url, ha_token = cfg_url, cfg_token
+        else:
+            submitted_url = (request.form.get("ha_url") or "").strip().rstrip("/")
+            submitted_token = (request.form.get("ha_token") or "").strip()
+            ha_url = submitted_url or cfg_url
+
+            if submitted_url and submitted_url != cfg_url and not submitted_token:
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": t("api.ha_token_required_for_url"),
+                            "todo_entities": [],
+                        }
+                    ),
+                    400,
+                )
+            ha_token = submitted_token or cfg_token
 
         client = HomeAssistantTodoClient(ha_url, ha_token)
         ok, msg = client.test_connection()
@@ -171,4 +207,5 @@ def test_ha():
             {"status": "success" if ok else "error", "message": msg, "todo_entities": entities}
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e), "todo_entities": []})
+        current_app.logger.exception("Error testing Home Assistant connection")
+        return jsonify({"status": "error", "message": str(e), "todo_entities": []}), 500

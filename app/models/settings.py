@@ -27,12 +27,12 @@ class Settings(db.Model):
         return default
 
     @classmethod
-    def set(cls, key: str, value: str) -> None:
-        """Set a setting value by key"""
+    def set(cls, key: str, value: str | None) -> None:
+        """Stage a setting value change in the current session (caller owns commit)."""
         setting = cls.query.filter_by(key=key).first()
         if setting:
             setting.value = value
         else:
             setting = cls(key=key, value=value)
             db.session.add(setting)
-        db.session.commit()
+        db.session.flush()

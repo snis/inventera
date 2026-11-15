@@ -105,10 +105,10 @@ class HomeAssistantTodoClient:
             logger.error(f"Error discovering todo entities: {str(e)}")
             return []
 
-    def get_existing_items(self, entity_id: str) -> list[str]:
+    def get_existing_items(self, entity_id: str) -> list[str] | None:
         """
         Get existing active items from a HA to-do list.
-        Returns list of lowercase item summaries to prevent duplicates.
+        Returns normalized item summaries, or None if the list could not be read.
         """
         try:
             url = f"{self.base_url}/api/services/todo/get_items?return_response"
@@ -118,15 +118,17 @@ class HomeAssistantTodoClient:
             if resp.status_code == 200:
                 data = resp.json()
                 items = data.get("service_response", {}).get(entity_id, {}).get("items", [])
-                active_summaries = [
-                    item.get("summary", "").strip().lower()
+                return [
+                    item.get("summary", "").strip().casefold()
                     for item in items
                     if item.get("status") == "needs_action"
                 ]
-                return active_summaries
+            logger.warning(
+                f"Failed to retrieve existing tasks from {entity_id}: HTTP {resp.status_code}"
+            )
         except Exception as e:
             logger.warning(f"Could not retrieve existing tasks from {entity_id}: {str(e)}")
-        return []
+        return None
 
     def add_todo_item(self, entity_id: str, summary: str, description: str | None = None) -> bool:
         """Add an item to a Home Assistant to-do list."""
@@ -142,6 +144,15 @@ class HomeAssistantTodoClient:
             return False
 
 
+def _is_item_present(item_name: str, existing_summaries: list[str]) -> bool:
+    """Match an item unambiguously by exact name or '{name} (...)' format."""
+    name_cf = item_name.strip().casefold()
+    return any(
+        existing == name_cf or existing.startswith(f"{name_cf} (")
+        for existing in existing_summaries
+    )
+
+
 def sync_low_inventory_to_ha() -> dict[str, Any]:
     """
     Find all items where quantity <= alert_quantity,
@@ -150,7 +161,14 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
     """
     client = HomeAssistantTodoClient()
     if not client.is_configured():
-        return {"status": "error", "synced_count": 0, "message": t("api.ha_not_configured")}
+        return {
+            "status": "error",
+            "synced_count": 0,
+            "failed_count": 0,
+            "skipped_count": 0,
+            "unmapped_count": 0,
+            "message": t("api.ha_not_configured"),
+        }
 
     low_items = (
         Item.query.filter(Item.is_visible.is_(True), Item.quantity <= Item.alert_quantity)
@@ -158,7 +176,14 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         .all()
     )
     if not low_items:
-        return {"status": "success", "synced_count": 0, "message": t("api.sync_none")}
+        return {
+            "status": "success",
+            "synced_count": 0,
+            "failed_count": 0,
+            "skipped_count": 0,
+            "unmapped_count": 0,
+            "message": t("api.sync_none"),
+        }
 
     store_map = get_store_todo_map()
     default_entity = (Settings.get("ha_default_todo_entity", "") or "").strip()
@@ -169,10 +194,11 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         if discovered:
             default_entity = discovered[0]["entity_id"]
 
-    existing_by_entity: dict[str, list[str]] = {}
-    synced = []
-    skipped = []
-    unmapped = []
+    existing_by_entity: dict[str, list[str] | None] = {}
+    synced: list[str] = []
+    skipped: list[str] = []
+    failed: list[str] = []
+    unmapped: list[str] = []
 
     for item in low_items:
         store = (item.store or "").strip()
@@ -188,12 +214,11 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         existing_summaries = existing_by_entity[target_entity]
         clean_name = item.name.strip()
 
-        already_present = any(
-            clean_name.lower() in existing or existing.startswith(clean_name.lower())
-            for existing in existing_summaries
-        )
+        if existing_summaries is None:
+            failed.append(clean_name)
+            continue
 
-        if already_present:
+        if _is_item_present(clean_name, existing_summaries):
             skipped.append(clean_name)
             continue
 
@@ -208,22 +233,37 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         if client.add_todo_item(target_entity, task_title, description):
             item.added_to_task = datetime.now()
             synced.append(clean_name)
-            existing_summaries.append(task_title.lower())
+            existing_summaries.append(task_title.casefold())
         else:
+            failed.append(clean_name)
             logger.error(f"Failed to add {clean_name} to {target_entity}")
 
-    db.session.commit()
+    if synced:
+        db.session.commit()
 
-    parts = [t("api.sync_added", added=len(synced))]
+    if failed and not synced:
+        status = "error"
+    elif failed:
+        status = "partial"
+    else:
+        status = "success"
+
+    parts: list[str] = []
+    if synced or not failed:
+        parts.append(t("api.sync_added", added=len(synced)))
     if skipped:
         parts.append(t("api.sync_skipped", skipped=len(skipped)))
+    if failed:
+        parts.append(t("api.sync_failed", failed=len(failed)))
 
     return {
-        "status": "success",
+        "status": status,
         "synced_count": len(synced),
+        "failed_count": len(failed),
         "skipped_count": len(skipped),
         "unmapped_count": len(unmapped),
         "synced_items": synced,
+        "failed_items": failed,
         "skipped_items": skipped,
         "message": " ".join(parts),
     }

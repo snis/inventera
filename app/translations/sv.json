@@ -116,7 +116,9 @@
     "missing_fields": "Alla obligatoriska fält måste fyllas i",
     "sync_added": "Lade till {added} artiklar i Home Assistant inköpslistor.",
     "sync_skipped": "{skipped} fanns redan uppskrivna.",
+    "sync_failed": "{failed} kunde inte synkas.",
     "sync_none": "Inga artiklar behövde synkas.",
-    "ha_not_configured": "Home Assistant URL eller token saknas. Konfigurera under Inställningar."
+    "ha_not_configured": "Home Assistant URL eller token saknas. Konfigurera under Inställningar.",
+    "ha_token_required_for_url": "Ange en ny access-token när du byter Home Assistant-URL."
   }
 }

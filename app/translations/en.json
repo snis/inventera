@@ -116,7 +116,9 @@
     "missing_fields": "All required fields must be filled in",
     "sync_added": "Added {added} items to Home Assistant shopping lists.",
     "sync_skipped": "{skipped} were already on the list.",
+    "sync_failed": "{failed} failed to sync.",
     "sync_none": "No items needed syncing.",
-    "ha_not_configured": "Home Assistant URL or token is missing. Configure it in Settings."
+    "ha_not_configured": "Home Assistant URL or token is missing. Configure it in Settings.",
+    "ha_token_required_for_url": "Please provide a new access token when changing the Home Assistant URL."
   }
 }

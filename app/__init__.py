@@ -9,9 +9,50 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.wrappers import Response
 
 # Initialize SQLAlchemy instance
 db = SQLAlchemy()
+
+DEFAULT_INGRESS_PROXY = "172.30.32.2"
+
+
+class IngressMiddleware:
+    """
+    WSGI middleware for Home Assistant Ingress (X-Ingress-Path).
+    In add-on mode (SUPERVISOR_TOKEN set), restricts access to trusted Ingress proxy IPs
+    unless overridden by INGRESS_TRUSTED_PROXIES or disabled in test config.
+    """
+
+    def __init__(
+        self,
+        wsgi_app,
+        *,
+        enforce_trusted_proxy: bool = False,
+        trusted_proxies: set[str] | None = None,
+    ):
+        self.wsgi_app = wsgi_app
+        self.enforce_trusted_proxy = enforce_trusted_proxy
+        self.trusted_proxies = trusted_proxies or {DEFAULT_INGRESS_PROXY}
+
+    def __call__(self, environ, start_response):
+        remote_addr = (environ.get("REMOTE_ADDR") or "").strip()
+        if self.enforce_trusted_proxy and remote_addr not in self.trusted_proxies:
+            resp = Response("Forbidden: direct access disabled in Ingress mode", status=403)
+            return resp(environ, start_response)
+
+        ingress_path = (environ.get("HTTP_X_INGRESS_PATH") or "").strip()
+        if ingress_path:
+            normalized = "/" + ingress_path.strip("/")
+            if normalized != "/":
+                environ["SCRIPT_NAME"] = normalized
+                path_info = environ.get("PATH_INFO", "")
+                if path_info == normalized:
+                    environ["PATH_INFO"] = "/"
+                elif path_info.startswith(normalized + "/"):
+                    environ["PATH_INFO"] = path_info[len(normalized) :]
+
+        return self.wsgi_app(environ, start_response)
 
 
 def create_app(test_config=None):
@@ -51,8 +92,17 @@ def create_app(test_config=None):
     # Initialize extensions with app
     db.init_app(app)
 
-    # Enable ProxyFix for reverse proxies (NPM, Traefik) and Home Assistant Ingress
+    # Enable ProxyFix for reverse proxies (NPM, Traefik) and explicit IngressMiddleware for HA Ingress
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    is_addon = bool(os.environ.get("SUPERVISOR_TOKEN", "").strip())
+    enforce_proxy = bool(app.config.get("ENFORCE_INGRESS_PROXY", is_addon))
+    raw_trusted = os.environ.get("INGRESS_TRUSTED_PROXIES", DEFAULT_INGRESS_PROXY)
+    trusted_proxies = {ip.strip() for ip in raw_trusted.split(",") if ip.strip()}
+    app.wsgi_app = IngressMiddleware(
+        app.wsgi_app,
+        enforce_trusted_proxy=enforce_proxy,
+        trusted_proxies=trusted_proxies,
+    )
 
     # Register blueprints
     from app.controllers.inventory import inventory_bp
