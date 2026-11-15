@@ -1,5 +1,6 @@
 """Option management services (Unit, Location, Store)."""
 
+import uuid
 from typing import Any
 
 from app.extensions import db
@@ -112,8 +113,13 @@ def save_managed_options_crud(
             continue
         pending_renames.append((opt, opt.name, clean))
 
+    used_names = {row.name.casefold() for row in model.query.all()}
     for idx, (opt, _old, _new) in enumerate(pending_renames):
-        opt.name = f"__tmp_rename_{opt.id}_{idx}__"
+        tmp_name = f"__tmp_{opt.id}_{idx}_{uuid.uuid4().hex[:12]}"
+        while tmp_name.casefold() in used_names:
+            tmp_name = f"__tmp_{uuid.uuid4().hex[:24]}"
+        used_names.add(tmp_name.casefold())
+        opt.name = tmp_name
     db.session.flush()
 
     for opt, old_name, new_name in pending_renames:

@@ -853,3 +853,122 @@ def test_index_location_storage_key_is_stable_across_reordering(app, client):
     html_after = client.get("/").get_data(as_text=True)
     assert f'data-target="content-1" data-storage-key="loc-{badrum_id}"' in html_after
     assert f'data-target="content-2" data-storage-key="loc-{forrad_id}"' in html_after
+
+
+def test_backup_restore_preserves_item_id_and_task_id_prevents_ha_duplicates(app, client):
+    ha_store: list[dict[str, str]] = []
+
+    class FakeResp:
+        def __init__(self, status_code: int, payload: dict):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_post(url, headers=None, json=None, timeout=5):
+        if "todo/get_items" in url:
+            return FakeResp(200, {"service_response": {"todo.shopping": {"items": ha_store}}})
+        if "todo/add_item" in url:
+            ha_store.append(
+                {
+                    "uid": f"uid-{len(ha_store) + 1}",
+                    "summary": json["item"],
+                    "description": json.get("description", ""),
+                    "status": "needs_action",
+                }
+            )
+            return FakeResp(200, {})
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        salt = Item(name="Salt", quantity=0, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(salt)
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+        original_id = salt.id
+
+        with patch("app.integrations.home_assistant.requests.post", fake_post):
+            first = sync_low_inventory_to_ha()
+            assert first["synced_count"] == 1
+
+    # Export and restore backup right after first sync (when task_id is not yet cached)
+    dl = client.get("/settings/backup")
+    assert dl.status_code == 200
+    backup_bytes = dl.get_data()
+
+    res = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(backup_bytes), "backup.json")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 302
+
+    with app.app_context():
+        restored = Item.query.filter_by(name="Salt").first()
+        assert restored is not None
+        assert restored.id == original_id
+
+        with patch("app.integrations.home_assistant.requests.post", fake_post):
+            second = sync_low_inventory_to_ha()
+            assert second["synced_count"] == 0
+            assert second["skipped_count"] == 1
+            assert len(ha_store) == 1
+
+
+def test_deleted_store_location_unit_id_not_reused_by_sqlite(app, client):
+    with app.app_context():
+        for model, old_name, new_name in (
+            (Store, "OldStore", "NewStore"),
+            (Location, "OldLoc", "NewLoc"),
+            (Unit, "OldUnit", "NewUnit"),
+        ):
+            first = model(name=old_name)
+            db.session.add(first)
+            db.session.commit()
+            old_id = first.id
+            db.session.delete(first)
+            db.session.commit()
+
+            second = model(name=new_name)
+            db.session.add(second)
+            db.session.commit()
+            assert second.id != old_id
+            if model is Store:
+                deleted_store_id = old_id
+                new_store_id = second.id
+
+    # Stale settings form targeting deleted_store_id must not rename NewStore
+    res = client.post(
+        "/settings/save",
+        data={"action": "save_stores", f"rename_store_{deleted_store_id}": "Hijacked"},
+    )
+    assert res.status_code == 302
+    with app.app_context():
+        assert db.session.get(Store, new_store_id).name == "NewStore"
+
+
+def test_options_rename_succeeds_even_when_tmp_rename_name_exists(app):
+    with app.app_context():
+        u1 = Unit(name="st")
+        u2 = Unit(name="kg")
+        u_collision = Unit(name="__tmp_rename_1_0__")
+        db.session.add_all([u1, u2, u_collision])
+        db.session.commit()
+
+        save_managed_options_crud(
+            "unit",
+            {u1.id: "kg", u2.id: "st"},
+            [],
+            [],
+        )
+        db.session.commit()
+
+        assert db.session.get(Unit, u1.id).name == "kg"
+        assert db.session.get(Unit, u2.id).name == "st"
+        assert db.session.get(Unit, u_collision.id).name == "__tmp_rename_1_0__"

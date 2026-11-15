@@ -95,6 +95,7 @@ def export_backup_payload() -> dict[str, Any]:
     """Export all inventory items, options, and non-secret settings as a JSON-serializable dict."""
     items_data = [
         {
+            "id": item.id,
             "name": item.name,
             "quantity": item.quantity,
             "alert_quantity": item.alert_quantity,
@@ -102,6 +103,7 @@ def export_backup_payload() -> dict[str, Any]:
             "location": item.location or "",
             "store": item.store or "",
             "is_visible": bool(item.is_visible),
+            "task_id": item.task_id,
             "last_checked": item.last_checked.isoformat() if item.last_checked else None,
             "added_to_task": item.added_to_task.isoformat() if item.added_to_task else None,
         }
@@ -146,9 +148,31 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
 
     validated_items: list[dict[str, Any]] = []
     seen_names: set[str] = set()
+    seen_ids: set[int] = set()
     for raw_item in payload["items"]:
         if not isinstance(raw_item, dict):
             raise ValueError("Invalid item entry in backup")
+
+        raw_id = raw_item.get("id")
+        item_id: int | None = None
+        if raw_id is not None:
+            item_id = _parse_strict_int(raw_id, "id", str(raw_item.get("name", "")))
+            if item_id < 1:
+                raise ValueError(f"Backup item 'id' must be >= 1, got {item_id}")
+            if item_id in seen_ids:
+                raise ValueError(f"Duplicate item id in backup: {item_id}")
+            seen_ids.add(item_id)
+
+        raw_task_id = raw_item.get("task_id")
+        task_id: str | None = None
+        if raw_task_id is not None:
+            if not isinstance(raw_task_id, str):
+                raise ValueError("Backup item 'task_id' must be a string or null")
+            clean_task_id = raw_task_id.strip()
+            if len(clean_task_id) > 64:
+                raise ValueError("Backup item 'task_id' exceeds maximum length of 64")
+            task_id = clean_task_id or None
+
         raw_name = raw_item.get("name")
         raw_unit = raw_item.get("unit")
         if not isinstance(raw_name, str) or not isinstance(raw_unit, str):
@@ -178,6 +202,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
 
         validated_items.append(
             {
+                "id": item_id,
                 "name": name,
                 "quantity": qty,
                 "alert_quantity": alert_qty,
@@ -185,6 +210,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
                 "location": (loc_val or "").strip(),
                 "store": (store_val or "").strip(),
                 "is_visible": is_visible,
+                "task_id": task_id,
                 "last_checked": _parse_iso_dt(raw_item.get("last_checked"), "last_checked")
                 or utc_now(),
                 "added_to_task": _parse_iso_dt(raw_item.get("added_to_task"), "added_to_task"),
@@ -209,23 +235,25 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         unit_obj = get_or_create_option("unit", entry["unit"]) if entry["unit"] else None
         loc_obj = get_or_create_option("location", entry["location"])
         store_obj = get_or_create_option("store", entry["store"])
-        db.session.add(
-            Item(
-                name=entry["name"],
-                quantity=entry["quantity"],
-                alert_quantity=entry["alert_quantity"],
-                unit=unit_obj.name if unit_obj else "",
-                unit_id=unit_obj.id if unit_obj else None,
-                category="",
-                location=loc_obj.name if loc_obj else "",
-                location_id=loc_obj.id if loc_obj else None,
-                store=store_obj.name if store_obj else "",
-                store_id=store_obj.id if store_obj else None,
-                is_visible=entry["is_visible"],
-                last_checked=entry["last_checked"],
-                added_to_task=entry["added_to_task"],
-            )
-        )
+        item_kwargs: dict[str, Any] = {
+            "name": entry["name"],
+            "quantity": entry["quantity"],
+            "alert_quantity": entry["alert_quantity"],
+            "unit": unit_obj.name if unit_obj else "",
+            "unit_id": unit_obj.id if unit_obj else None,
+            "category": "",
+            "location": loc_obj.name if loc_obj else "",
+            "location_id": loc_obj.id if loc_obj else None,
+            "store": store_obj.name if store_obj else "",
+            "store_id": store_obj.id if store_obj else None,
+            "is_visible": entry["is_visible"],
+            "task_id": entry["task_id"],
+            "last_checked": entry["last_checked"],
+            "added_to_task": entry["added_to_task"],
+        }
+        if entry["id"] is not None:
+            item_kwargs["id"] = entry["id"]
+        db.session.add(Item(**item_kwargs))
 
     backup_defaults = {
         "ha_default_todo_entity": "",

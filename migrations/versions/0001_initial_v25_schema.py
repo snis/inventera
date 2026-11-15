@@ -19,16 +19,19 @@ def upgrade() -> None:
         "units",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(length=32), nullable=False, unique=True),
+        sqlite_autoincrement=True,
     )
     op.create_table(
         "locations",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(length=64), nullable=False, unique=True),
+        sqlite_autoincrement=True,
     )
     op.create_table(
         "stores",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(length=64), nullable=False, unique=True),
+        sqlite_autoincrement=True,
     )
     op.create_table(
         "settings",

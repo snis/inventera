@@ -12,6 +12,7 @@ class Unit(BaseModel):
     """Model representing a measurement unit with a stable database ID."""
 
     __tablename__ = "units"
+    __table_args__ = {"sqlite_autoincrement": True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(32), nullable=False, unique=True)
 
@@ -20,6 +21,7 @@ class Location(BaseModel):
     """Model representing a storage location with a stable database ID."""
 
     __tablename__ = "locations"
+    __table_args__ = {"sqlite_autoincrement": True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False, unique=True)
 
@@ -28,6 +30,7 @@ class Store(BaseModel):
     """Model representing a store/supplier with a stable database ID."""
 
     __tablename__ = "stores"
+    __table_args__ = {"sqlite_autoincrement": True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False, unique=True)
 
