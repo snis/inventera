@@ -1,10 +1,16 @@
 __pycache__
 .venv
 venv
+instance
+.env
+.env.*
 *.pyc
 *.pyo
 *.pyd
-instance/db.sqlite3
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
 screenshots
 .gitignore
 .git

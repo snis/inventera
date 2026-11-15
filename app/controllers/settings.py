@@ -5,9 +5,11 @@ language selection, and general app settings.
 """
 
 import json
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
+    Response,
     current_app,
     jsonify,
     make_response,
@@ -18,6 +20,7 @@ from flask import (
     url_for,
 )
 
+from app.config import utc_now
 from app.extensions import db
 from app.integrations.home_assistant import (
     HomeAssistantTodoClient,
@@ -26,6 +29,7 @@ from app.integrations.home_assistant import (
     save_store_todo_map,
 )
 from app.models.settings import Settings
+from app.services.backup import export_backup_payload, restore_backup_payload
 from app.services.options import (
     OPTION_FIELDS,
     get_distinct_field_values,
@@ -86,10 +90,22 @@ def settings():
             default_todo_entity=default_todo_entity,
             managed_options=managed_options,
             saved=request.args.get("saved") == "1",
+            restored=request.args.get("restored") == "1",
         )
     except Exception as e:
         current_app.logger.error(f"Error rendering settings page: {str(e)}")
         return render_template("error.html", message=t("common.error_generic"))
+
+
+def _validate_calendar_url(raw_url: str) -> str:
+    """Allow empty string or http(s) URLs with a valid host."""
+    clean = raw_url.strip()
+    if not clean:
+        return ""
+    parsed = urlparse(clean)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError(t("api.invalid_calendar_url"))
+    return clean
 
 
 @settings_bp.route("/settings/save", methods=["POST"])
@@ -100,7 +116,8 @@ def save_settings():
         ha_url = (request.form.get("ha_url") or "").strip().rstrip("/")
         ha_token = (request.form.get("ha_token") or "").strip()
         default_todo = (request.form.get("ha_default_todo_entity") or "").strip()
-        calendar_url = (request.form.get("calendar_url") or "").strip()
+        calendar_url = _validate_calendar_url(request.form.get("calendar_url") or "")
+        ha_lists_available = request.form.get("ha_lists_available", "1") == "1"
 
         # Validate standalone URL change requires explicit token
         if not is_addon and ha_url and ha_url != cfg_url and not ha_token:
@@ -147,16 +164,26 @@ def save_settings():
             if ha_token:
                 Settings.set("ha_token", ha_token)
 
-        Settings.set("ha_default_todo_entity", default_todo)
+        if ha_lists_available or default_todo:
+            Settings.set("ha_default_todo_entity", default_todo)
         Settings.set("calendar_url", calendar_url)
 
-        new_map = {}
-        for key, value in request.form.items():
-            if key.startswith("store_map_"):
-                store_name = key[len("store_map_") :]
-                if store_name and value.strip():
-                    new_map[store_name] = value.strip()
-        save_store_todo_map(new_map)
+        if ha_lists_available:
+            new_map = {}
+            for key, value in request.form.items():
+                if key.startswith("store_map_"):
+                    store_name = key[len("store_map_") :]
+                    if store_name and value.strip():
+                        new_map[store_name] = value.strip()
+            save_store_todo_map(new_map)
+        else:
+            existing_map = get_store_todo_map()
+            for key, value in request.form.items():
+                if key.startswith("store_map_"):
+                    store_name = key[len("store_map_") :]
+                    if store_name and value.strip():
+                        existing_map[store_name] = value.strip()
+            save_store_todo_map(existing_map)
 
         for field, (renames, new_names, delete_ids) in parsed_options.items():
             save_managed_options_crud(field, renames, new_names, delete_ids)
@@ -209,3 +236,38 @@ def test_ha():
     except Exception as e:
         current_app.logger.exception("Error testing Home Assistant connection")
         return jsonify({"status": "error", "message": str(e), "todo_entities": []}), 500
+
+
+@settings_bp.route("/settings/backup")
+def download_backup():
+    """Download a JSON backup of inventory items, options, and non-secret settings."""
+    payload = export_backup_payload()
+    stamp = utc_now().strftime("%Y%m%d-%H%M%S")
+    filename = f"inventera-backup-{stamp}.json"
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@settings_bp.route("/settings/restore", methods=["POST"])
+def restore_backup():
+    """Restore inventory items, options, and non-secret settings from an uploaded JSON backup."""
+    try:
+        uploaded = request.files.get("backup_file")
+        if not uploaded or not uploaded.filename:
+            raise ValueError("No backup file uploaded")
+        raw = uploaded.read().decode("utf-8")
+        payload = json.loads(raw)
+        restore_backup_payload(payload)
+        db.session.commit()
+        return redirect(url_for("settings.settings", restored="1"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        db.session.rollback()
+        current_app.logger.warning(f"Invalid backup restore attempt: {e}")
+        return render_template("error.html", message=str(e)), 400
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error restoring backup")
+        return render_template("error.html", message=t("common.error_generic")), 500

@@ -1,6 +1,7 @@
 """Shopping list synchronization service to Home Assistant To-do lists."""
 
 import logging
+import threading
 from typing import Any
 
 from app.config import utc_now
@@ -11,13 +12,22 @@ from app.models.settings import Settings
 from app.utils.i18n import t
 
 logger = logging.getLogger(__name__)
+_sync_lock = threading.Lock()
+
+
+def _extract_base_name(summary: str) -> str:
+    """Strip trailing ' (<qty> <unit>)' suffix from a HA to-do summary if present."""
+    clean = summary.strip().casefold()
+    if clean.endswith(")") and " (" in clean:
+        return clean.rsplit(" (", 1)[0].strip()
+    return clean
 
 
 def _is_item_present(item_name: str, existing_summaries: list[str]) -> bool:
-    """Match an item unambiguously by exact name or '{name} (...)' format."""
+    """Match an item unambiguously by exact normalized name or base name before '(...)'."""
     name_cf = item_name.strip().casefold()
     return any(
-        existing == name_cf or existing.startswith(f"{name_cf} (")
+        existing == name_cf or _extract_base_name(existing) == name_cf
         for existing in existing_summaries
     )
 
@@ -62,6 +72,17 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         if discovered:
             default_entity = discovered[0]["entity_id"]
 
+    with _sync_lock:
+        return _execute_sync(client, low_items, store_map, default_entity)
+
+
+def _execute_sync(
+    client: HomeAssistantTodoClient,
+    low_items: list[Item],
+    store_map: dict[str, str],
+    default_entity: str,
+) -> dict[str, Any]:
+    """Execute the locked read-check-write synchronization against Home Assistant."""
     existing_by_entity: dict[str, list[str] | None] = {}
     synced: list[str] = []
     skipped: list[str] = []
@@ -109,20 +130,23 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
     if synced:
         db.session.commit()
 
-    if failed and not synced:
+    all_unmapped = bool(unmapped) and not synced and not skipped and not failed
+    if (failed and not synced) or all_unmapped:
         status = "error"
-    elif failed:
+    elif failed or unmapped:
         status = "partial"
     else:
         status = "success"
 
     parts: list[str] = []
-    if synced or not failed:
+    if synced or (not failed and not all_unmapped):
         parts.append(t("api.sync_added", added=len(synced)))
     if skipped:
         parts.append(t("api.sync_skipped", skipped=len(skipped)))
     if failed:
         parts.append(t("api.sync_failed", failed=len(failed)))
+    if unmapped:
+        parts.append(t("api.sync_unmapped", unmapped=len(unmapped)))
 
     return {
         "status": status,
@@ -133,5 +157,6 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         "synced_items": synced,
         "failed_items": failed,
         "skipped_items": skipped,
+        "unmapped_items": unmapped,
         "message": " ".join(parts),
     }

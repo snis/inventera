@@ -104,11 +104,23 @@ class HomeAssistantTodoClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                items = data.get("service_response", {}).get(entity_id, {}).get("items", [])
+                if not isinstance(data, dict):
+                    logger.warning(f"Unexpected non-dict payload from {entity_id}")
+                    return None
+                service_resp = data.get("service_response")
+                if not isinstance(service_resp, dict) or entity_id not in service_resp:
+                    logger.warning(f"Missing service_response for {entity_id}")
+                    return None
+                entity_data = service_resp[entity_id]
+                if not isinstance(entity_data, dict) or not isinstance(
+                    entity_data.get("items"), list
+                ):
+                    logger.warning(f"Malformed items list in response for {entity_id}")
+                    return None
                 return [
                     item.get("summary", "").strip().casefold()
-                    for item in items
-                    if item.get("status") == "needs_action"
+                    for item in entity_data["items"]
+                    if isinstance(item, dict) and item.get("status") == "needs_action"
                 ]
             logger.warning(
                 f"Failed to retrieve existing tasks from {entity_id}: HTTP {resp.status_code}"

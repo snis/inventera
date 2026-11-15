@@ -47,59 +47,96 @@ def save_managed_options_crud(
     new_names: list[str],
     delete_ids: list[int],
 ) -> None:
-    """Apply renames, additions, and deletions for Unit/Location/Store by ID and sync Items."""
+    """
+    Apply deletions, renames (supporting swaps without silent merges), and additions
+    for Unit/Location/Store by ID and sync Items and store-todo mappings.
+    """
     model = OPTION_MODELS[field_name]
     fk_col = f"{field_name}_id"
+    delete_set = set(delete_ids)
 
-    for opt_id in delete_ids:
+    # 1. Validate final names across all surviving + new options before mutating
+    all_rows = model.query.all()
+    final_names: dict[str, str] = {}
+    for row in all_rows:
+        if row.id in delete_set:
+            continue
+        target_name = (renames[row.id] if row.id in renames else row.name).strip()
+        if not target_name:
+            raise ValueError(f"Option name for {field_name} cannot be empty")
+        key = target_name.casefold()
+        if key in final_names:
+            raise ValueError(f"Duplicate {field_name} name: {target_name}")
+        final_names[key] = target_name
+
+    clean_new: list[str] = []
+    for raw in new_names:
+        clean = (raw or "").strip()
+        if not clean:
+            continue
+        key = clean.casefold()
+        if key in final_names:
+            raise ValueError(f"Duplicate {field_name} name: {clean}")
+        final_names[key] = clean
+        clean_new.append(clean)
+
+    # 2. Apply deletions and track deleted store names for map cleanup
+    deleted_store_names: set[str] = set()
+    for opt_id in delete_set:
         opt = db.session.get(model, opt_id)
         if opt:
+            if field_name == "store":
+                deleted_store_names.add(opt.name)
             Item.query.filter(getattr(Item, fk_col) == opt.id).update(
                 {fk_col: None, field_name: ""}, synchronize_session=False
             )
             db.session.delete(opt)
     db.session.flush()
 
+    # 3. Apply renames via two-phase temporary names so swaps (A <-> B) never collide
     store_renames: dict[str, str] = {}
-    for opt_id, new_name in renames.items():
-        clean = (new_name or "").strip()
-        if not clean:
+    pending_renames: list[tuple[object, str, str]] = []
+    for opt_id, raw_new in renames.items():
+        if opt_id in delete_set:
             continue
+        clean = raw_new.strip()
         opt = db.session.get(model, opt_id)
         if not opt or opt.name == clean:
             continue
-        conflict = model.query.filter(
-            db.func.lower(model.name) == clean.lower(), model.id != opt.id
-        ).first()
-        if conflict:
-            Item.query.filter(getattr(Item, fk_col) == opt.id).update(
-                {fk_col: conflict.id, field_name: conflict.name}, synchronize_session=False
-            )
-            if field_name == "store":
-                store_renames[opt.name] = conflict.name
-            db.session.delete(opt)
-        else:
-            old_name = opt.name
-            opt.name = clean
-            Item.query.filter(getattr(Item, fk_col) == opt.id).update(
-                {field_name: clean}, synchronize_session=False
-            )
-            if field_name == "store":
-                store_renames[old_name] = clean
+        pending_renames.append((opt, opt.name, clean))
 
-    for name in new_names:
-        get_or_create_option(field_name, name)
+    for idx, (opt, _old, _new) in enumerate(pending_renames):
+        opt.name = f"__tmp_rename_{opt.id}_{idx}__"
+    db.session.flush()
+
+    for opt, old_name, new_name in pending_renames:
+        opt.name = new_name
+        Item.query.filter(getattr(Item, fk_col) == opt.id).update(
+            {field_name: new_name}, synchronize_session=False
+        )
+        if field_name == "store":
+            store_renames[old_name] = new_name
+
+    # 4. Apply additions
+    for clean in clean_new:
+        get_or_create_option(field_name, clean)
 
     db.session.flush()
 
-    if store_renames:
+    # 5. Sync store -> todo.* mapping for renames and deletions
+    if field_name == "store" and (store_renames or deleted_store_names):
         todo_map = get_store_todo_map()
+        updated_map = dict(todo_map)
         changed = False
+        for old_name in deleted_store_names:
+            if old_name in updated_map:
+                del updated_map[old_name]
+                changed = True
         for old_name, new_name in store_renames.items():
             if old_name in todo_map:
-                if new_name not in todo_map:
-                    todo_map[new_name] = todo_map[old_name]
-                del todo_map[old_name]
+                updated_map[new_name] = todo_map[old_name]
+                if old_name not in store_renames.values():
+                    updated_map.pop(old_name, None)
                 changed = True
         if changed:
-            save_store_todo_map(todo_map)
+            save_store_todo_map(updated_map)

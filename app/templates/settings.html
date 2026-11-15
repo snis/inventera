@@ -11,6 +11,11 @@
                 <i class="fa fa-check-circle"></i> {{ t('settings.settings_saved') }}
             </div>
         {% endif %}
+        {% if restored %}
+            <div class="all-stocked-banner" style="margin: 15px 0; padding: 12px;">
+                <i class="fa fa-check-circle"></i> {{ t('settings.restore_success') }}
+            </div>
+        {% endif %}
 
         <form action="{{ url_for('settings.save_settings') }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -63,6 +68,8 @@
                 {% if not todo_entities %}
                     <p style="color: var(--ha-orange); font-weight: 600;">{{ t('settings.no_lists_found') }}</p>
                 {% endif %}
+                <input type="hidden" name="ha_lists_available" id="ha_lists_available" value="{{ '1' if todo_entities else '0' }}">
+                {% set discovered_ids = todo_entities | map(attribute='entity_id') | list %}
 
                 <table class="shopping-table">
                     <thead>
@@ -77,6 +84,9 @@
                             <td>
                                 <select name="ha_default_todo_entity" class="todo-select" style="width: 100%; max-width: 380px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
                                     <option value="">{{ t('settings.select_list') }}</option>
+                                    {% if default_todo_entity and default_todo_entity not in discovered_ids %}
+                                        <option value="{{ default_todo_entity }}" selected>{{ default_todo_entity }} ({{ t('settings.saved_offline') }})</option>
+                                    {% endif %}
                                     {% for ent in todo_entities %}
                                         <option value="{{ ent.entity_id }}" {% if default_todo_entity == ent.entity_id %}selected{% endif %}>
                                             {{ ent.name }} ({{ ent.entity_id }})
@@ -86,13 +96,17 @@
                             </td>
                         </tr>
                         {% for store in stores %}
+                            {% set current_store_entity = store_todo_map.get(store) %}
                             <tr>
                                 <td>{{ store }}</td>
                                 <td>
                                     <select name="store_map_{{ store }}" class="todo-select" style="width: 100%; max-width: 380px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
                                         <option value="">{{ t('settings.select_list') }}</option>
+                                        {% if current_store_entity and current_store_entity not in discovered_ids %}
+                                            <option value="{{ current_store_entity }}" selected>{{ current_store_entity }} ({{ t('settings.saved_offline') }})</option>
+                                        {% endif %}
                                         {% for ent in todo_entities %}
-                                            <option value="{{ ent.entity_id }}" {% if store_todo_map.get(store) == ent.entity_id %}selected{% endif %}>
+                                            <option value="{{ ent.entity_id }}" {% if current_store_entity == ent.entity_id %}selected{% endif %}>
                                                 {{ ent.name }} ({{ ent.entity_id }})
                                             </option>
                                         {% endfor %}
@@ -149,6 +163,24 @@
                 </button>
             </div>
         </form>
+
+        <!-- Backup & Restore -->
+        <div class="store-group" style="margin-top: 24px;">
+            <h2><i class="fa fa-database"></i> {{ t('settings.backup_heading') }}</h2>
+            <p class="instruction-text" style="margin-bottom: 12px;">{{ t('settings.backup_desc') }}</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                <a href="{{ url_for('settings.download_backup') }}" class="btn btn-secondary">
+                    <i class="fa fa-download"></i> {{ t('settings.backup_download') }}
+                </a>
+                <form action="{{ url_for('settings.restore_backup') }}" method="post" enctype="multipart/form-data" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;" onsubmit="return confirm({{ t('settings.restore_confirm')|tojson }});">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="file" name="backup_file" accept=".json,application/json" required>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-upload"></i> {{ t('settings.restore_button') }}
+                    </button>
+                </form>
+            </div>
+        </div>
 {% endblock %}
 {% block scripts %}
     <script>
@@ -165,9 +197,12 @@
                 }, function(resp) {
                     btn.prop('disabled', false);
                     if (resp.status === 'success') {
-                        statusEl.html('<span style="color: var(--ha-green);"><i class="fa fa-check"></i> ' + resp.message + ' (' + resp.todo_entities.length + ')</span>');
-                        // Dynamically populate all dropdowns with discovered todo.* entities
+                        const okSpan = $('<span style="color: var(--ha-green);"></span>');
+                        okSpan.append($('<i class="fa fa-check"></i>'));
+                        okSpan.append(document.createTextNode(' ' + (resp.message || '') + ' (' + resp.todo_entities.length + ')'));
+                        statusEl.empty().append(okSpan);
                         if (resp.todo_entities && resp.todo_entities.length > 0) {
+                            $('#ha_lists_available').val('1');
                             $('.todo-select').each(function() {
                                 const select = $(this);
                                 const currentVal = select.val();
@@ -181,7 +216,10 @@
                             });
                         }
                     } else {
-                        statusEl.html('<span style="color: var(--ha-red);"><i class="fa fa-times"></i> ' + resp.message + '</span>');
+                        const errSpan = $('<span style="color: var(--ha-red);"></span>');
+                        errSpan.append($('<i class="fa fa-times"></i>'));
+                        errSpan.append(document.createTextNode(' ' + (resp.message || 'Error')));
+                        statusEl.empty().append(errSpan);
                     }
                 }).fail(function() {
                     btn.prop('disabled', false);

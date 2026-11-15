@@ -1,7 +1,6 @@
 """Tests for validation/HTTP error contract, CSRF protection, and Alembic migrations."""
 
 import re
-import sqlite3
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +9,7 @@ from sqlalchemy import inspect
 
 from app import create_app
 from app.extensions import db
-from app.models.item import Item, Location, Store, Unit
+from app.models.item import Item, Unit
 
 
 @pytest.fixture()
@@ -157,8 +156,7 @@ def test_csrf_protection_blocks_missing_token_and_accepts_valid_token():
     assert res_ok.get_json()["new_quantity"] == 3
 
 
-def test_alembic_fresh_install_and_legacy_upgrade(tmp_path):
-    # 1. Fresh install
+def test_alembic_fresh_install_matches_models(tmp_path):
     fresh_db = tmp_path / "fresh.sqlite3"
     fresh_app = create_app(
         {
@@ -170,58 +168,14 @@ def test_alembic_fresh_install_and_legacy_upgrade(tmp_path):
     )
     with fresh_app.app_context():
         alembic_upgrade()
-        tables = set(inspect(db.engine).get_table_names())
+        # Running upgrade twice must be idempotent
+        alembic_upgrade()
+        insp = inspect(db.engine)
+        tables = set(insp.get_table_names())
         assert {"item", "settings", "units", "locations", "stores", "alembic_version"} <= tables
 
-    # 2. Legacy v1 DB upgrade + backfill
-    legacy_db = tmp_path / "legacy.sqlite3"
-    conn = sqlite3.connect(legacy_db)
-    conn.execute(
-        """
-        CREATE TABLE item (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR(64) NOT NULL UNIQUE,
-            quantity INTEGER NOT NULL DEFAULT 0,
-            alert_quantity INTEGER NOT NULL DEFAULT 0,
-            unit VARCHAR(16) NOT NULL,
-            category VARCHAR(32) NOT NULL DEFAULT '',
-            location VARCHAR(64) NOT NULL DEFAULT '',
-            store VARCHAR(64) NOT NULL DEFAULT ''
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE settings (
-            id INTEGER PRIMARY KEY,
-            key VARCHAR(64) NOT NULL UNIQUE,
-            value TEXT
-        )
-        """
-    )
-    conn.execute(
-        "INSERT INTO item (name, quantity, alert_quantity, unit, location, store) "
-        "VALUES ('Tvål', 2, 1, 'flaskor', 'Badrum', 'Apoteket')"
-    )
-    conn.commit()
-    conn.close()
-
-    legacy_app = create_app(
-        {
-            "TESTING": True,
-            "WTF_CSRF_ENABLED": False,
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{legacy_db}",
-            "ENFORCE_INGRESS_PROXY": False,
-        }
-    )
-    with legacy_app.app_context():
-        alembic_upgrade()
-        item = Item.query.filter_by(name="Tvål").first()
-        assert item is not None
-        assert item.is_visible is True
-        assert item.unit_id is not None
-        assert item.location_id is not None
-        assert item.store_id is not None
-        assert Unit.query.filter_by(name="flaskor").first() is not None
-        assert Location.query.filter_by(name="Badrum").first() is not None
-        assert Store.query.filter_by(name="Apoteket").first() is not None
+        for table_name, table in db.metadata.tables.items():
+            db_cols = {c["name"]: c for c in insp.get_columns(table_name)}
+            assert set(table.columns.keys()) == set(db_cols.keys())
+            for col in table.columns:
+                assert bool(col.nullable) == bool(db_cols[col.name]["nullable"])

@@ -105,7 +105,14 @@
     "options_store": "Inköpsställen",
     "options_category": "Kategorier",
     "add_option_placeholder": "Nytt alternativ...",
-    "add_option_btn": "Lägg till"
+    "add_option_btn": "Lägg till",
+    "saved_offline": "sparad – HA ej nåbar",
+    "backup_heading": "Backup & Återställning",
+    "backup_desc": "Exportera hela inventariet, enheter, platser, butiker och inställningar till JSON, eller återställ från en tidigare backup.",
+    "backup_download": "Ladda ner backup (JSON)",
+    "restore_button": "Återställ från JSON-fil",
+    "restore_confirm": "Detta ersätter nuvarande inventarie och inställningar med filens innehåll. Fortsätta?",
+    "restore_success": "Backup återställd!"
   },
   "api": {
     "invalid_quantity": "Antal måste vara ett positivt heltal",
@@ -117,8 +124,10 @@
     "sync_added": "Lade till {added} artiklar i Home Assistant inköpslistor.",
     "sync_skipped": "{skipped} fanns redan uppskrivna.",
     "sync_failed": "{failed} kunde inte synkas.",
+    "sync_unmapped": "{unmapped} saknar mål-lista.",
     "sync_none": "Inga artiklar behövde synkas.",
     "ha_not_configured": "Home Assistant URL eller token saknas. Konfigurera under Inställningar.",
-    "ha_token_required_for_url": "Ange en ny access-token när du byter Home Assistant-URL."
+    "ha_token_required_for_url": "Ange en ny access-token när du byter Home Assistant-URL.",
+    "invalid_calendar_url": "Kalenderlänken måste börja med http:// eller https://."
   }
 }

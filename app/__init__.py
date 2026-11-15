@@ -8,11 +8,23 @@ import os
 from pathlib import Path
 
 from flask import Flask
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.wrappers import Response
 
 from app.config import DEFAULT_INGRESS_PROXY, build_config
 from app.extensions import csrf, db, migrate
+
+
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+    """Enforce foreign key constraints on every SQLite connection."""
+    module_name = type(dbapi_connection).__module__
+    if module_name.startswith("sqlite3"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 class IngressMiddleware:

@@ -19,11 +19,17 @@ from app.utils.responses import create_response, is_ajax_request
 inventory_bp = Blueprint("inventory", __name__)
 
 
+MAX_SQLITE_INT = 2_147_483_647
+
+
 def _parse_non_negative_int(raw: str | None, field_label: str) -> int:
-    """Parse a non-negative integer string or raise ValueError."""
+    """Parse a non-negative integer within SQLite 32-bit safe bounds or raise ValueError."""
     if raw is None or not raw.strip().isdigit():
         raise ValueError(f"Invalid non-negative integer for {field_label}")
-    return int(raw.strip())
+    val = int(raw.strip())
+    if val > MAX_SQLITE_INT:
+        raise ValueError(f"Value out of range for {field_label}")
+    return val
 
 
 def _resolve_option(model, raw_id: str | None, *, required: bool = False):
