@@ -50,13 +50,14 @@ services:
    cd inventera
    uv sync
    ```
-2. Run the application:
+2. Run database migrations and start the development server:
    ```bash
+   uv run flask --app wsgi db upgrade
    uv run run.py
    ```
 3. Open `http://localhost:5000` in your browser.
 
-On startup, `db.create_all()` and `ensure_option_schema_and_backfill()` automatically create tables, migrate missing columns (`unit_id`, `location_id`, `store_id`, `is_visible`), and backfill ID-backed options from existing items.
+Database schema creation and upgrades from older v1/v2.0 databases are handled via Alembic/Flask-Migrate (`migrations/`). In Home Assistant Add-on mode (`config.yaml`), the SQLite database and persistent `.secret_key` are stored in `/data`.
 
 ## Environment Variables
 

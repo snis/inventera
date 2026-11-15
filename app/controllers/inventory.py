@@ -3,20 +3,16 @@ Inventory blueprint for the inventory application.
 Contains routes for inventory management operations.
 """
 
-from datetime import datetime
-
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 
-from app import db
+from app.config import utc_now
+from app.extensions import db
 from app.models.item import Item, Location, Store, Unit
-from app.utils.ha_todo import sync_low_inventory_to_ha
-from app.utils.helpers import (
-    get_low_stock_by_store,
-    get_managed_options,
-    get_row_color,
-    get_warning_color,
-)
+from app.presentation.colors import get_row_color, get_warning_color
+from app.services.inventory import get_low_stock_by_store
+from app.services.options import get_managed_options
+from app.services.shopping_sync import sync_low_inventory_to_ha
 from app.utils.i18n import t
 from app.utils.responses import create_response, is_ajax_request
 
@@ -68,7 +64,7 @@ def _apply_item_update(item: Item, item_id: int) -> None:
     item.location = loc_obj.name if loc_obj else ""
     item.store_id = store_obj.id if store_obj else None
     item.store = store_obj.name if store_obj else ""
-    item.last_checked = datetime.now()
+    item.last_checked = utc_now()
 
 
 def _create_item_from_form() -> Item:
@@ -99,7 +95,7 @@ def _create_item_from_form() -> Item:
         location_id=loc_obj.id if loc_obj else None,
         store=store_obj.name if store_obj else "",
         store_id=store_obj.id if store_obj else None,
-        last_checked=datetime.now(),
+        last_checked=utc_now(),
     )
 
 
@@ -151,7 +147,7 @@ def update_quantity():
             )
 
         item.quantity = new_quantity
-        item.last_checked = datetime.now()
+        item.last_checked = utc_now()
         db.session.commit()
 
         if is_ajax_request():

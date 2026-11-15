@@ -18,15 +18,15 @@ from flask import (
     url_for,
 )
 
-from app import db
-from app.models.settings import Settings
-from app.utils.ha_todo import (
+from app.extensions import db
+from app.integrations.home_assistant import (
     HomeAssistantTodoClient,
     get_ha_config,
     get_store_todo_map,
     save_store_todo_map,
 )
-from app.utils.helpers import (
+from app.models.settings import Settings
+from app.services.options import (
     OPTION_FIELDS,
     get_distinct_field_values,
     get_managed_options,

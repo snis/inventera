@@ -2,9 +2,8 @@
 Item model for the inventory application.
 """
 
-from datetime import datetime
-
-from app import db
+from app.config import utc_now
+from app.extensions import db
 
 
 class Unit(db.Model):
@@ -43,7 +42,7 @@ class Item(db.Model):
     unit = db.Column(db.String(16), nullable=False, default="")
     unit_id = db.Column(db.Integer, db.ForeignKey("units.id"), nullable=True)
     alert_quantity = db.Column(db.Integer)
-    last_checked = db.Column(db.DateTime, default=datetime.utcnow)
+    last_checked = db.Column(db.DateTime, default=utc_now)
     location = db.Column(db.String(32), nullable=True)
     location_id = db.Column(db.Integer, db.ForeignKey("locations.id"), nullable=True)
     store = db.Column(db.String(32), nullable=True)

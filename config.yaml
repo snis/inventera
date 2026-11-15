@@ -1,0 +1,16 @@
+name: "Inventera"
+version: "2.5.0"
+slug: "inventera"
+description: "Mobile-friendly inventory and shopping list manager integrated with Home Assistant To-do lists."
+url: "https://github.com/snis/inventera"
+arch:
+  - aarch64
+  - amd64
+init: false
+ingress: true
+ingress_port: 5000
+panel_icon: "mdi:clipboard-list-outline"
+panel_title: "Inventera"
+homeassistant_api: true
+options: {}
+schema: {}

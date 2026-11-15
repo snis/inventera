@@ -4,10 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app import create_app, db
+from app import create_app
+from app.extensions import db
 from app.models.item import Item
 from app.models.settings import Settings
-from app.utils.ha_todo import sync_low_inventory_to_ha
+from app.services.shopping_sync import sync_low_inventory_to_ha
 
 
 @pytest.fixture()
@@ -49,7 +50,7 @@ def test_test_ha_addon_mode_never_leaks_supervisor_token(client, monkeypatch):
         resp.json.return_value = []
         return resp
 
-    with patch("app.utils.ha_todo.requests.get", side_effect=fake_get):
+    with patch("app.integrations.home_assistant.requests.get", side_effect=fake_get):
         res = client.post(
             "/settings/test_ha",
             data={"ha_url": "https://attacker.example.com", "ha_token": ""},
@@ -67,7 +68,7 @@ def test_standalone_url_change_requires_explicit_token(app, client, monkeypatch)
         Settings.set("ha_token", "existing-secret-token")
         db.session.commit()
 
-    with patch("app.utils.ha_todo.requests.get") as mock_get:
+    with patch("app.integrations.home_assistant.requests.get") as mock_get:
         res_test = client.post(
             "/settings/test_ha",
             data={"ha_url": "https://attacker.example.com", "ha_token": ""},
@@ -174,7 +175,7 @@ def test_ha_sync_exact_matching_does_not_skip_salt_for_ortsalt(app, monkeypatch)
                 resp.status_code = 200
             return resp
 
-        with patch("app.utils.ha_todo.requests.post", side_effect=fake_post):
+        with patch("app.integrations.home_assistant.requests.post", side_effect=fake_post):
             result = sync_low_inventory_to_ha()
 
     assert result["status"] == "success"
@@ -199,7 +200,7 @@ def test_ha_sync_read_error_is_not_treated_as_empty_list(app, monkeypatch):
             resp.status_code = 500
             return resp
 
-        with patch("app.utils.ha_todo.requests.post", side_effect=fake_post):
+        with patch("app.integrations.home_assistant.requests.post", side_effect=fake_post):
             result = sync_low_inventory_to_ha()
 
     assert result["status"] == "error"
@@ -225,7 +226,7 @@ def test_ha_sync_reports_error_when_all_writes_fail(app, monkeypatch):
                 resp.status_code = 500
             return resp
 
-        with patch("app.utils.ha_todo.requests.post", side_effect=fake_post):
+        with patch("app.integrations.home_assistant.requests.post", side_effect=fake_post):
             result = sync_low_inventory_to_ha()
 
     assert result["status"] == "error"

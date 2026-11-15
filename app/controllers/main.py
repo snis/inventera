@@ -3,17 +3,13 @@ Main blueprint for the inventory application.
 Contains routes for the main index page.
 """
 
-from datetime import datetime
-
 from flask import Blueprint, current_app, render_template
 
-from app import db
+from app.config import utc_now
+from app.extensions import db
 from app.models.item import Item
-from app.utils.helpers import (
-    get_items_by_location,
-    get_row_color,
-    get_warning_color,
-)
+from app.presentation.colors import get_row_color, get_warning_color
+from app.services.inventory import get_items_by_location
 
 # Create blueprint
 main_bp = Blueprint("main", __name__)
@@ -36,7 +32,7 @@ def index(page: int = 1):
             items_by_location=items_by_location,
             get_row_color=get_row_color,
             get_warning_color=get_warning_color,
-            now=datetime.now(),
+            now=utc_now(),
             total_items=total_items,
         )
     except Exception:

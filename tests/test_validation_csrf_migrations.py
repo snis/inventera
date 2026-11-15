@@ -8,7 +8,8 @@ import pytest
 from flask_migrate import upgrade as alembic_upgrade
 from sqlalchemy import inspect
 
-from app import create_app, db
+from app import create_app
+from app.extensions import db
 from app.models.item import Item, Location, Store, Unit
 
 

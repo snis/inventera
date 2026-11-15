@@ -2,7 +2,7 @@
 Settings model for the inventory application.
 """
 
-from app import db
+from app.extensions import db
 
 
 class Settings(db.Model):

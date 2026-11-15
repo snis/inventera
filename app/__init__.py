@@ -5,20 +5,14 @@ Main application package.
 
 import logging
 import os
+from pathlib import Path
 
 from flask import Flask
-from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.wrappers import Response
 
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-csrf = CSRFProtect()
-
-DEFAULT_INGRESS_PROXY = "172.30.32.2"
+from app.config import DEFAULT_INGRESS_PROXY, build_config
+from app.extensions import csrf, db, migrate
 
 
 class IngressMiddleware:
@@ -60,57 +54,31 @@ class IngressMiddleware:
 
 
 def create_app(test_config=None):
-    """
-    Application factory function.
-    Creates and configures the Flask application.
-    """
+    """Application factory function."""
     app = Flask(__name__)
-
-    # Configure logging
     app.logger.setLevel(logging.INFO)
 
-    # Default configuration
-    db_path = "../instance/db.sqlite3"
-    # Check if database exists, if not try to use the test database
-    if not os.path.exists(os.path.join(os.path.dirname(__file__), db_path)):
-        app.logger.warning(f"Database not found at {db_path}, attempting to create one")
-        # The database will be created by db.create_all() below
+    app_root = Path(__file__).resolve().parent
+    app.config.update(build_config(app_root, test_config))
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["JSON_SORT_KEYS"] = False  # Preserve JSON order for readability
-    app.config["SECRET_KEY"] = os.environ.get(
-        "SECRET_KEY", os.urandom(24).hex()
-    )  # For session support
-
-    # Override with test config if provided
-    if test_config:
-        app.config.update(test_config)
-
-    # Ensure the instance folder exists
     try:
         os.makedirs(app.instance_path, exist_ok=True)
     except OSError:
         pass
 
-    # Initialize extensions with app
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
 
-    # Enable ProxyFix for reverse proxies (NPM, Traefik) and explicit IngressMiddleware for HA Ingress
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    is_addon = bool(os.environ.get("SUPERVISOR_TOKEN", "").strip())
-    enforce_proxy = bool(app.config.get("ENFORCE_INGRESS_PROXY", is_addon))
     raw_trusted = os.environ.get("INGRESS_TRUSTED_PROXIES", DEFAULT_INGRESS_PROXY)
     trusted_proxies = {ip.strip() for ip in raw_trusted.split(",") if ip.strip()}
     app.wsgi_app = IngressMiddleware(
         app.wsgi_app,
-        enforce_trusted_proxy=enforce_proxy,
+        enforce_trusted_proxy=bool(app.config.get("ENFORCE_INGRESS_PROXY", False)),
         trusted_proxies=trusted_proxies,
     )
 
-    # Register blueprints
     from app.controllers.inventory import inventory_bp
     from app.controllers.main import main_bp
     from app.controllers.settings import settings_bp
@@ -119,14 +87,12 @@ def create_app(test_config=None):
     app.register_blueprint(inventory_bp)
     app.register_blueprint(settings_bp)
 
-    # Register i18n and dynamic settings in template context
     from app.models.settings import Settings
     from app.utils.i18n import SUPPORTED_LANGUAGES, get_locale, get_translations_dict, t
 
     @app.context_processor
     def inject_globals():
         lang = get_locale()
-        calendar_url = ""
         try:
             calendar_url = Settings.get("calendar_url", os.environ.get("CALENDAR_URL", ""))
         except Exception:

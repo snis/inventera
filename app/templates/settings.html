@@ -1,19 +1,7 @@
-<!DOCTYPE html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ t('settings.title') }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <script src="{{ url_for('static', filename='ha-theme.js') }}"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>$.ajaxSetup({ beforeSend: function(xhr, s) { if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(s.type) && !this.crossDomain) { xhr.setRequestHeader("X-CSRFToken", document.querySelector('meta[name="csrf-token"]').content); } } });</script>
-</head>
-<body>
-    <div class="background_wrapper"></div>
-    <div class="card">
+{% extends "base.html" %}
+{% block viewport %}width=device-width, initial-scale=1.0{% endblock %}
+{% block title %}{{ t('settings.title') }}{% endblock %}
+{% block content %}
         <h1>{{ t('settings.title') }}</h1>
         {% set active_page = 'settings' %}
         {% include 'includes/nav.html' %}
@@ -161,8 +149,8 @@
                 </button>
             </div>
         </form>
-    </div>
-
+{% endblock %}
+{% block scripts %}
     <script>
         $(document).ready(function() {
             $('#test-ha-btn').click(function() {
@@ -263,5 +251,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}

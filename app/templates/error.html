@@ -1,12 +1,7 @@
-<!DOCTYPE html>
-<html lang="sv">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>Fel - Inventera</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% block viewport %}width=device-width, initial-scale=1.0{% endblock %}
+{% block title %}Fel - Inventera{% endblock %}
+{% block content %}
     <div class="container">
         <h1>Ett fel har uppstått</h1>
         <div class="error-message">
@@ -16,5 +11,4 @@
             <a href="{{ url_for('main.index') }}" class="btn">Gå till startsidan</a>
         </div>
     </div>
-</body>
-</html>
+{% endblock %}
