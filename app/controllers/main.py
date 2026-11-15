@@ -39,6 +39,6 @@ def index(page: int = 1):
             now=datetime.now(),
             total_items=total_items,
         )
-    except Exception as e:
-        current_app.logger.error(f"Error rendering index: {str(e)}")
-        return render_template("error.html", message="Ett fel uppstod vid hämtning av data.")
+    except Exception:
+        current_app.logger.exception("Error rendering index")
+        return render_template("error.html", message="Ett fel uppstod vid hämtning av data."), 500

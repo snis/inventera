@@ -15,11 +15,13 @@ def app():
     test_app = create_app(
         {
             "TESTING": True,
+            "WTF_CSRF_ENABLED": False,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
             "ENFORCE_INGRESS_PROXY": False,
         }
     )
     with test_app.app_context():
+        db.create_all()
         yield test_app
         db.session.remove()
         db.drop_all()
@@ -126,9 +128,12 @@ def test_addon_mode_blocks_untrusted_direct_access(monkeypatch):
     addon_app = create_app(
         {
             "TESTING": True,
+            "WTF_CSRF_ENABLED": False,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         }
     )
+    with addon_app.app_context():
+        db.create_all()
     addon_client = addon_app.test_client()
 
     blocked = addon_client.get("/", environ_base={"REMOTE_ADDR": "192.168.1.50"})

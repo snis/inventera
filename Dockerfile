@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["uv", "run", "--no-sync", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "wsgi:app"]
+CMD ["sh", "-c", "uv run --no-sync flask --app wsgi db upgrade && exec uv run --no-sync gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 wsgi:app"]

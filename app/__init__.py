@@ -7,12 +7,16 @@ import logging
 import os
 
 from flask import Flask
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.wrappers import Response
 
-# Initialize SQLAlchemy instance
+# Initialize extensions
 db = SQLAlchemy()
+migrate = Migrate()
+csrf = CSRFProtect()
 
 DEFAULT_INGRESS_PROXY = "172.30.32.2"
 
@@ -91,6 +95,8 @@ def create_app(test_config=None):
 
     # Initialize extensions with app
     db.init_app(app)
+    migrate.init_app(app, db)
+    csrf.init_app(app)
 
     # Enable ProxyFix for reverse proxies (NPM, Traefik) and explicit IngressMiddleware for HA Ingress
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -133,12 +139,9 @@ def create_app(test_config=None):
             "calendar_url": calendar_url,
         }
 
-    # Create database tables if they don't exist and backfill ID-backed options
-    with app.app_context():
-        db.create_all()
-        from app.utils.helpers import ensure_option_schema_and_backfill
-
-        ensure_option_schema_and_backfill()
+    # Import models so Flask-Migrate / Alembic discovers all metadata
+    from app.models import item as _item_models  # noqa: F401
+    from app.models import settings as _settings_models  # noqa: F401
 
     app.logger.info("Application initialized successfully")
     return app

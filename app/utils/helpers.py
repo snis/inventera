@@ -4,8 +4,6 @@ Helper functions for the inventory application.
 
 from datetime import datetime
 
-from sqlalchemy import text
-
 from app import db
 from app.models.item import Item, Location, Store, Unit
 
@@ -126,28 +124,22 @@ def get_items_by_location() -> dict[str, list[Item]]:
     from app.utils.i18n import t
 
     other_label = t("common.other")
-    try:
-        items = Item.query.filter(Item.is_visible.is_(True)).order_by(Item.name).all()
-        grouped: dict[str, list[Item]] = {}
+    items = Item.query.filter(Item.is_visible.is_(True)).order_by(Item.name).all()
+    grouped: dict[str, list[Item]] = {}
 
-        for item in items:
-            loc = (item.location or "").strip() or other_label
-            if loc not in grouped:
-                grouped[loc] = []
-            grouped[loc].append(item)
+    for item in items:
+        loc = (item.location or "").strip() or other_label
+        if loc not in grouped:
+            grouped[loc] = []
+        grouped[loc].append(item)
 
-        ordered_grouped: dict[str, list[Item]] = {}
-        for loc in sorted(k for k in grouped.keys() if k != other_label):
-            ordered_grouped[loc] = grouped[loc]
-        if other_label in grouped:
-            ordered_grouped[other_label] = grouped[other_label]
+    ordered_grouped: dict[str, list[Item]] = {}
+    for loc in sorted(k for k in grouped.keys() if k != other_label):
+        ordered_grouped[loc] = grouped[loc]
+    if other_label in grouped:
+        ordered_grouped[other_label] = grouped[other_label]
 
-        return ordered_grouped
-    except Exception as e:
-        import logging
-
-        logging.error(f"Error in get_items_by_location: {str(e)}")
-        return {}
+    return ordered_grouped
 
 
 def get_low_stock_by_store() -> dict[str, list[Item]]:
@@ -161,32 +153,26 @@ def get_low_stock_by_store() -> dict[str, list[Item]]:
     from app.utils.i18n import t
 
     other_label = t("common.other")
-    try:
-        items = (
-            Item.query.filter(Item.is_visible.is_(True), Item.quantity <= Item.alert_quantity)
-            .order_by(Item.name)
-            .all()
-        )
-        grouped: dict[str, list[Item]] = {}
+    items = (
+        Item.query.filter(Item.is_visible.is_(True), Item.quantity <= Item.alert_quantity)
+        .order_by(Item.name)
+        .all()
+    )
+    grouped: dict[str, list[Item]] = {}
 
-        for item in items:
-            store = (item.store or "").strip() or other_label
-            if store not in grouped:
-                grouped[store] = []
-            grouped[store].append(item)
+    for item in items:
+        store = (item.store or "").strip() or other_label
+        if store not in grouped:
+            grouped[store] = []
+        grouped[store].append(item)
 
-        ordered_grouped: dict[str, list[Item]] = {}
-        for store in sorted(k for k in grouped.keys() if k != other_label):
-            ordered_grouped[store] = grouped[store]
-        if other_label in grouped:
-            ordered_grouped[other_label] = grouped[other_label]
+    ordered_grouped: dict[str, list[Item]] = {}
+    for store in sorted(k for k in grouped.keys() if k != other_label):
+        ordered_grouped[store] = grouped[store]
+    if other_label in grouped:
+        ordered_grouped[other_label] = grouped[other_label]
 
-        return ordered_grouped
-    except Exception as e:
-        import logging
-
-        logging.error(f"Error in get_low_stock_by_store: {str(e)}")
-        return {}
+    return ordered_grouped
 
 
 OPTION_FIELDS = ("unit", "location", "store")
@@ -225,21 +211,11 @@ def get_or_create_option(field_name: str, name: str):
     return created
 
 
-def ensure_option_schema_and_backfill() -> None:
-    """Add unit_id/location_id/store_id columns if missing and backfill from existing items/settings."""
+def backfill_options_from_items() -> None:
+    """Backfill Unit/Location/Store rows and Item foreign keys from existing items/settings."""
     import json
 
     from app.models.settings import Settings
-
-    cols = {row[1] for row in db.session.execute(text("PRAGMA table_info(item)")).fetchall()}
-    for col_name in ("unit_id", "location_id", "store_id"):
-        if col_name not in cols:
-            db.session.execute(text(f"ALTER TABLE item ADD COLUMN {col_name} INTEGER"))
-    if "is_visible" not in cols:
-        db.session.execute(
-            text("ALTER TABLE item ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT 1")
-        )
-    db.session.commit()
 
     # Seed any previously saved Settings managed_options_<field>
     for field in OPTION_FIELDS:
