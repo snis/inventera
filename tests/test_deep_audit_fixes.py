@@ -1185,3 +1185,57 @@ def test_shopping_copy_button_handles_missing_clipboard_and_permission_error(app
     assert "typeof navigator.clipboard.writeText === 'function'" in html
     assert ".catch(function()" in html
     assert "alert(T.common.error_generic)" in html
+
+
+def test_ha_sync_omits_description_for_shopping_list_without_feature_64(app):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add(Item(name="Bröd", quantity=0, alert_quantity=1, unit="st", unit_id=u.id))
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping_list")
+        db.session.commit()
+
+        add_payloads: list[dict] = []
+
+        class FakeResp:
+            def __init__(self, status_code: int, payload: dict):
+                self.status_code = status_code
+                self._payload = payload
+
+            def json(self):
+                return self._payload
+
+        def fake_get(url, headers=None, timeout=5):
+            if url.endswith("/api/states/todo.shopping_list"):
+                # HA built-in shopping_list: CREATE|DELETE|UPDATE|MOVE = 15 (no SET_DESCRIPTION_ON_ITEM=64)
+                return FakeResp(
+                    200,
+                    {
+                        "entity_id": "todo.shopping_list",
+                        "attributes": {"supported_features": 15, "friendly_name": "Shopping List"},
+                    },
+                )
+            raise AssertionError(f"Unexpected GET URL: {url}")
+
+        def fake_post(url, headers=None, json=None, timeout=5):
+            if "todo/get_items" in url:
+                return FakeResp(200, {"service_response": {"todo.shopping_list": {"items": []}}})
+            if "todo/add_item" in url:
+                if "description" in (json or {}):
+                    return FakeResp(400, {"message": "Entity does not support descriptions"})
+                add_payloads.append(json)
+                return FakeResp(200, {})
+            raise AssertionError(f"Unexpected POST URL: {url}")
+
+        with (
+            patch("app.integrations.home_assistant.requests.get", fake_get),
+            patch("app.integrations.home_assistant.requests.post", fake_post),
+        ):
+            res = sync_low_inventory_to_ha()
+            assert res["status"] == "success"
+            assert res["synced_count"] == 1
+            assert len(add_payloads) == 1
+            assert add_payloads[0] == {"entity_id": "todo.shopping_list", "item": "Bröd (0 st)"}

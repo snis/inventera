@@ -47,6 +47,9 @@ def save_store_todo_map(mapping: dict[str, str]) -> None:
     Settings.set("ha_store_todo_map", json.dumps(clean, ensure_ascii=False))
 
 
+TODO_FEATURE_SET_DESCRIPTION = 64
+
+
 class HomeAssistantTodoClient:
     """Client for interacting with Home Assistant To-do API."""
 
@@ -56,6 +59,7 @@ class HomeAssistantTodoClient:
         self.token = token if token is not None else cfg_token
         self.is_addon = is_addon
         self.headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+        self._description_support_cache: dict[str, bool] = {}
 
     def is_configured(self) -> bool:
         return bool(self.base_url and self.token)
@@ -85,7 +89,13 @@ class HomeAssistantTodoClient:
             for state in resp.json():
                 entity_id = state.get("entity_id", "")
                 if entity_id.startswith("todo."):
-                    friendly = state.get("attributes", {}).get("friendly_name") or entity_id
+                    attrs = state.get("attributes", {}) or {}
+                    raw_features = attrs.get("supported_features")
+                    if isinstance(raw_features, int):
+                        self._description_support_cache[entity_id] = bool(
+                            raw_features & TODO_FEATURE_SET_DESCRIPTION
+                        )
+                    friendly = attrs.get("friendly_name") or entity_id
                     entities.append({"entity_id": entity_id, "name": friendly})
             return sorted(entities, key=lambda e: e["name"].lower())
         except Exception as e:
@@ -140,12 +150,37 @@ class HomeAssistantTodoClient:
             return None
         return [entry["summary"] for entry in entries]
 
+    def supports_description(self, entity_id: str) -> bool:
+        """Check whether the target todo.* entity supports TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM (64)."""
+        if entity_id in self._description_support_cache:
+            return self._description_support_cache[entity_id]
+        if not self.is_configured():
+            return True
+        try:
+            resp = requests.get(
+                f"{self.base_url}/api/states/{entity_id}", headers=self.headers, timeout=5
+            )
+            if resp.status_code == 200:
+                state = resp.json()
+                if isinstance(state, dict):
+                    attrs = state.get("attributes") or {}
+                    raw_features = (
+                        attrs.get("supported_features") if isinstance(attrs, dict) else None
+                    )
+                    if isinstance(raw_features, int):
+                        supported = bool(raw_features & TODO_FEATURE_SET_DESCRIPTION)
+                        self._description_support_cache[entity_id] = supported
+                        return supported
+        except Exception as e:
+            logger.debug(f"Could not inspect supported_features for {entity_id}: {str(e)}")
+        return True
+
     def add_todo_item(self, entity_id: str, summary: str, description: str | None = None) -> bool:
         """Add an item to a Home Assistant to-do list."""
         try:
             url = f"{self.base_url}/api/services/todo/add_item"
             payload: dict[str, Any] = {"entity_id": entity_id, "item": summary}
-            if description:
+            if description and self.supports_description(entity_id):
                 payload["description"] = description
             resp = requests.post(url, headers=self.headers, json=payload, timeout=5)
             return resp.status_code in (200, 201)
