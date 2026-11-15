@@ -10,6 +10,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.config import utc_now
 from app.extensions import db
 from app.models.item import Item, Location, Store, Unit
+from app.models.settings import Settings
 from app.presentation.colors import get_row_color, get_warning_color
 from app.services.inventory import get_low_stock_by_store
 from app.services.options import get_managed_options
@@ -378,6 +379,10 @@ def remove_item(item_id: int):
 
         _check_version(item, request.form.get("version"))
         item_name = item.name
+        deleted_version = item.version or 1
+        current_floor = int(Settings.get("max_item_version_seen", "0") or 0)
+        if deleted_version > current_floor:
+            Settings.set("max_item_version_seen", str(deleted_version))
         db.session.delete(item)
         db.session.commit()
 

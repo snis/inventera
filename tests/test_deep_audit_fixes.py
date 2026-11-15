@@ -1125,3 +1125,63 @@ def test_update_quantity_response_uses_committed_version_not_post_commit_select(
     payload = res.get_json()
     assert payload["new_quantity"] == 2
     assert payload["version"] == 2
+
+
+def test_backup_restore_after_delete_still_invalidates_deleted_item_version(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Te", quantity=1, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+        item_id = item.id
+
+    # Export at version=1
+    backup_bytes = client.get("/settings/backup").get_data()
+
+    # Bump to version=2 then delete
+    res_bump = client.post(
+        "/update_quantity",
+        data={"item_id": str(item_id), "new_quantity": "4", "version": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_bump.status_code == 200
+    assert res_bump.get_json()["version"] == 2
+
+    res_del = client.post(
+        f"/remove_item/{item_id}",
+        data={"version": "2"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_del.status_code == 200
+
+    # Restore backup -> version must be > 2 so old version=2 forms are rejected
+    res_restore = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(backup_bytes), "v1.json")},
+        content_type="multipart/form-data",
+    )
+    assert res_restore.status_code == 302
+
+    res_stale = client.post(
+        "/update_quantity",
+        data={"item_id": str(item_id), "new_quantity": "99", "version": "2"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res_stale.status_code == 409
+
+    with app.app_context():
+        restored = db.session.get(Item, item_id)
+        assert restored is not None
+        assert restored.quantity == 1
+        assert restored.version >= 3
+
+
+def test_shopping_copy_button_handles_missing_clipboard_and_permission_error(app, client):
+    html = client.get("/shopping").get_data(as_text=True)
+    assert "copyToClipboard" in html
+    assert "fallbackCopyText" in html
+    assert "typeof navigator.clipboard.writeText === 'function'" in html
+    assert ".catch(function()" in html
+    assert "alert(T.common.error_generic)" in html

@@ -60,6 +60,41 @@
     <script>
         const T = {{ js_translations|tojson }};
         $(document).ready(function() {
+            function fallbackCopyText(text) {
+                try {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.setAttribute('readonly', '');
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return Boolean(ok);
+                } catch (_err) {
+                    return false;
+                }
+            }
+
+            function copyToClipboard(text, onSuccess, onError) {
+                if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    navigator.clipboard.writeText(text).then(onSuccess).catch(function() {
+                        if (fallbackCopyText(text)) {
+                            onSuccess();
+                        } else {
+                            onError();
+                        }
+                    });
+                    return;
+                }
+                if (fallbackCopyText(text)) {
+                    onSuccess();
+                } else {
+                    onError();
+                }
+            }
+
             // Copy list to clipboard
             $('.btn-copy').click(function() {
                 const btn = $(this);
@@ -73,13 +108,19 @@
                     text += "- " + name + " (" + qty + " / " + min + ")\n";
                 });
 
-                navigator.clipboard.writeText(text).then(function() {
-                    const origHtml = btn.html();
-                    btn.html('<i class="fa fa-check"></i> ' + T.shopping.copied);
-                    setTimeout(function() {
-                        btn.html(origHtml);
-                    }, 1500);
-                });
+                copyToClipboard(
+                    text,
+                    function() {
+                        const origHtml = btn.html();
+                        btn.html('<i class="fa fa-check"></i> ' + T.shopping.copied);
+                        setTimeout(function() {
+                            btn.html(origHtml);
+                        }, 1500);
+                    },
+                    function() {
+                        alert(T.common.error_generic);
+                    }
+                );
             });
 
             // Sync to Home Assistant

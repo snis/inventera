@@ -229,6 +229,8 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
     # All validation passed — now replace data atomically
     existing_versions = {row.id: (row.version or 1) for row in Item.query.all()}
     max_existing_version = max(existing_versions.values(), default=0)
+    db_floor = int(Settings.get("max_item_version_seen", "0") or 0)
+    version_floor = max(db_floor, max_existing_version)
     Item.query.delete(synchronize_session=False)
     Unit.query.delete(synchronize_session=False)
     Location.query.delete(synchronize_session=False)
@@ -242,16 +244,13 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
     for name in payload.get("stores") or []:
         get_or_create_option("store", name)
 
+    max_restored_version = version_floor
     for entry in validated_items:
         unit_obj = get_or_create_option("unit", entry["unit"]) if entry["unit"] else None
         loc_obj = get_or_create_option("location", entry["location"])
         store_obj = get_or_create_option("store", entry["store"])
-        prior_version = (
-            existing_versions.get(entry["id"], 0)
-            if entry["id"] is not None
-            else max_existing_version
-        )
-        restored_version = max(prior_version, entry["version"] or 1) + 1
+        restored_version = max(version_floor, entry["version"] or 1) + 1
+        max_restored_version = max(max_restored_version, restored_version)
         item_kwargs: dict[str, Any] = {
             "name": entry["name"],
             "quantity": entry["quantity"],
@@ -280,6 +279,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
     }
     for key in BACKUP_SETTING_KEYS:
         Settings.set(key, validated_settings.get(key, backup_defaults.get(key, "")))
+    Settings.set("max_item_version_seen", str(max_restored_version))
 
     db.session.flush()
     return len(validated_items)
