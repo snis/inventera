@@ -85,6 +85,8 @@ def save_managed_options_crud(
     for opt_id in delete_set:
         opt = db.session.get(model, opt_id)
         if opt:
+            if field_name == "unit" and Item.query.filter(Item.unit_id == opt.id).count() > 0:
+                raise ValueError(f"Cannot delete unit '{opt.name}' while it is in use by items")
             if field_name == "store":
                 deleted_store_names.add(opt.name)
             Item.query.filter(getattr(Item, fk_col) == opt.id).update(

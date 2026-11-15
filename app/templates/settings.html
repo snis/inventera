@@ -172,7 +172,7 @@
                 <a href="{{ url_for('settings.download_backup') }}" class="btn btn-secondary">
                     <i class="fa fa-download"></i> {{ t('settings.backup_download') }}
                 </a>
-                <form action="{{ url_for('settings.restore_backup') }}" method="post" enctype="multipart/form-data" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;" onsubmit="return confirm({{ t('settings.restore_confirm')|tojson }});">
+                <form id="restore-backup-form" action="{{ url_for('settings.restore_backup') }}" method="post" enctype="multipart/form-data" data-confirm="{{ t('settings.restore_confirm') }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="file" name="backup_file" accept=".json,application/json" required>
                     <button type="submit" class="btn btn-primary">
@@ -185,6 +185,13 @@
 {% block scripts %}
     <script>
         $(document).ready(function() {
+            $('#restore-backup-form').on('submit', function(e) {
+                const msg = $(this).data('confirm');
+                if (msg && !window.confirm(msg)) {
+                    e.preventDefault();
+                }
+            });
+
             $('#test-ha-btn').click(function() {
                 const btn = $(this);
                 const statusEl = $('#ha-test-status');

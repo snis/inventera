@@ -1,7 +1,7 @@
 """Backup export, shared settings validators, and atomic restore service."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -34,9 +34,12 @@ def _parse_iso_dt(raw: Any, field_name: str) -> datetime | None:
     if not isinstance(raw, str):
         raise ValueError(f"Invalid datetime type for '{field_name}'")
     try:
-        return datetime.fromisoformat(raw)
+        dt = datetime.fromisoformat(raw)
     except ValueError as exc:
         raise ValueError(f"Invalid ISO datetime for '{field_name}': {raw}") from exc
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
 
 
 def _parse_strict_int(value: Any, field_name: str, item_name: str) -> int:
@@ -152,11 +155,11 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
             raise ValueError("Backup item 'name' and 'unit' must be strings")
         name = raw_name.strip()
         unit_name = raw_unit.strip()
-        if not name or not unit_name:
-            raise ValueError("Backup item missing required 'name' or 'unit'")
-        if name.casefold() in seen_names:
+        if not name:
+            raise ValueError("Backup item missing required 'name'")
+        if name in seen_names:
             raise ValueError(f"Duplicate item name in backup: {name}")
-        seen_names.add(name.casefold())
+        seen_names.add(name)
 
         qty = _parse_strict_int(raw_item.get("quantity"), "quantity", name)
         alert_qty = _parse_strict_int(raw_item.get("alert_quantity"), "alert_quantity", name)
@@ -202,7 +205,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         get_or_create_option("store", name)
 
     for entry in validated_items:
-        unit_obj = get_or_create_option("unit", entry["unit"])
+        unit_obj = get_or_create_option("unit", entry["unit"]) if entry["unit"] else None
         loc_obj = get_or_create_option("location", entry["location"])
         store_obj = get_or_create_option("store", entry["store"])
         db.session.add(
@@ -210,8 +213,8 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
                 name=entry["name"],
                 quantity=entry["quantity"],
                 alert_quantity=entry["alert_quantity"],
-                unit=unit_obj.name,
-                unit_id=unit_obj.id,
+                unit=unit_obj.name if unit_obj else "",
+                unit_id=unit_obj.id if unit_obj else None,
                 category="",
                 location=loc_obj.name if loc_obj else "",
                 location_id=loc_obj.id if loc_obj else None,

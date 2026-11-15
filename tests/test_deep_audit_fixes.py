@@ -314,3 +314,56 @@ def test_backup_export_and_atomic_restore(app, client):
         assert te is not None
         assert te.unit_id is not None
         assert te.store == "Coop"
+
+
+def test_backup_roundtrip_case_variant_names_empty_unit_and_tz_conversion(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add_all(
+            [
+                Item(name="Salt", quantity=1, alert_quantity=0, unit="st", unit_id=u.id),
+                Item(name="salt", quantity=2, alert_quantity=0, unit="", unit_id=None),
+            ]
+        )
+        db.session.commit()
+
+    dl = client.get("/settings/backup")
+    assert dl.status_code == 200
+    payload = json.loads(dl.get_data(as_text=True))
+    payload["items"][0]["last_checked"] = "2026-11-15T15:00:00+02:00"
+
+    res = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(json.dumps(payload).encode("utf-8")), "b.json")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 302
+
+    with app.app_context():
+        big = Item.query.filter_by(name="Salt").first()
+        small = Item.query.filter_by(name="salt").first()
+        assert big is not None and small is not None
+        assert small.unit == "" and small.unit_id is None
+        assert big.last_checked.hour == 13
+        assert big.last_checked.minute == 0
+
+
+def test_cannot_delete_unit_in_use_and_settings_confirm_attr_valid(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add(Item(name="Pasta", quantity=1, alert_quantity=1, unit="st", unit_id=u.id))
+        db.session.commit()
+        unit_id = u.id
+
+        with pytest.raises(ValueError):
+            save_managed_options_crud("unit", {}, [], [unit_id])
+        db.session.rollback()
+
+    html = client.get("/settings").get_data(as_text=True)
+    assert 'id="restore-backup-form"' in html
+    assert "data-confirm=" in html
+    assert 'onsubmit="return confirm(' not in html
