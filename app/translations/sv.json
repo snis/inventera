@@ -71,7 +71,9 @@
     "location_placeholder": "t.ex. Förråd, Badrum, Kök",
     "store_placeholder": "t.ex. ICA, Apoteket",
     "category_placeholder": "t.ex. Städ, Medicin",
-    "unit_placeholder": "t.ex. st, pkt, flaskor"
+    "unit_placeholder": "t.ex. st, pkt, flaskor",
+    "show_item": "Synlig under Inventera (klicka för att dölja)",
+    "hide_item": "Dold under Inventera (klicka för att visa)"
   },
   "settings": {
     "title": "Inställningar",

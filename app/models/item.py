@@ -46,6 +46,7 @@ class Item(db.Model):
     # New fields for Google Tasks / Home Assistant integration
     task_id = db.Column(db.String(64), nullable=True)  # Tasks task ID if added
     added_to_task = db.Column(db.DateTime, nullable=True)  # When item was added to tasks
+    is_visible = db.Column(db.Boolean, nullable=False, default=True)
 
     unit_rel = db.relationship('Unit', foreign_keys=[unit_id])
     location_rel = db.relationship('Location', foreign_keys=[location_id])
@@ -70,5 +71,6 @@ class Item(db.Model):
             'store': self.store_rel.name if self.store_rel else self.store,
             'store_id': self.store_id,
             'task_id': self.task_id,
-            'added_to_task': self.added_to_task.strftime('%d/%m') if self.added_to_task else None
+            'added_to_task': self.added_to_task.strftime('%d/%m') if self.added_to_task else None,
+            'is_visible': bool(self.is_visible)
         }

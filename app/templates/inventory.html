@@ -50,7 +50,7 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                        <tr id="item-row-{{ item.id }}">
+                        <tr id="item-row-{{ item.id }}" class="{% if not item.is_visible %}row-hidden{% endif %}">
                             <td id="item-name-{{ item.id }}" style="background-color: {{ get_warning_color(item.quantity, item.alert_quantity) }}">
                                 <input type="text" name="name_{{ item.id }}" value="{{ item.name }}" class="input-name">
                             </td>
@@ -88,6 +88,9 @@
                             </td>
                             <td style="background-color: {{ get_row_color(item.last_checked) }}; white-space: nowrap;">
                                 <button class="apply item-update-btn" type="button" data-item-id="{{ item.id }}" title="{{ t('common.save') }}"></button>
+                                <button class="toggle-visibility item-visibility-btn {% if not item.is_visible %}is-hidden{% endif %}" type="button" data-item-id="{{ item.id }}" data-visible="{{ 'true' if item.is_visible else 'false' }}" title="{{ t('manage.show_item') if item.is_visible else t('manage.hide_item') }}">
+                                    <i class="fa {{ 'fa-eye' if item.is_visible else 'fa-eye-slash' }}"></i>
+                                </button>
                                 <button class="remove-item item-remove-btn" type="button" data-item-id="{{ item.id }}" title="{{ t('common.delete') }}"></button>
                             </td>
                         </tr>
@@ -177,6 +180,41 @@
                     },
                     error: function() {
                         $(`.item-update-btn[data-item-id="${itemId}"]`).css('opacity', '1');
+                        alert(T.common.error_generic);
+                    }
+                });
+            });
+
+            // Toggle visibility under Inventera
+            $('.item-visibility-btn').click(function() {
+                const btn = $(this);
+                const itemId = btn.data('item-id');
+                btn.css('opacity', '0.5');
+
+                $.ajax({
+                    type: 'POST',
+                    url: "{{ url_for('inventory.toggle_visibility', item_id=0) }}".replace('0', itemId),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        btn.css('opacity', '1');
+                        if (response.status === 'success') {
+                            const row = $('#item-row-' + itemId);
+                            const icon = btn.find('i');
+                            if (response.is_visible) {
+                                row.removeClass('row-hidden');
+                                btn.removeClass('is-hidden').attr('title', T.manage.show_item);
+                                icon.removeClass('fa-eye-slash').addClass('fa-eye');
+                            } else {
+                                row.addClass('row-hidden');
+                                btn.addClass('is-hidden').attr('title', T.manage.hide_item);
+                                icon.removeClass('fa-eye').addClass('fa-eye-slash');
+                            }
+                        } else {
+                            alert(response.message || T.common.error_generic);
+                        }
+                    },
+                    error: function() {
+                        btn.css('opacity', '1');
                         alert(T.common.error_generic);
                     }
                 });

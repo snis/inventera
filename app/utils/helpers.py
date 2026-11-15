@@ -123,7 +123,7 @@ def get_items_by_location() -> Dict[str, List[Item]]:
     from app.utils.i18n import t
     other_label = t('common.other')
     try:
-        items = Item.query.order_by(Item.name).all()
+        items = Item.query.filter(Item.is_visible == True).order_by(Item.name).all()
         grouped: Dict[str, List[Item]] = {}
         
         for item in items:
@@ -156,7 +156,7 @@ def get_low_stock_by_store() -> Dict[str, List[Item]]:
     from app.utils.i18n import t
     other_label = t('common.other')
     try:
-        items = Item.query.filter(Item.quantity <= Item.alert_quantity).order_by(Item.name).all()
+        items = Item.query.filter(Item.is_visible == True, Item.quantity <= Item.alert_quantity).order_by(Item.name).all()
         grouped: Dict[str, List[Item]] = {}
         
         for item in items:
@@ -223,6 +223,8 @@ def ensure_option_schema_and_backfill() -> None:
     for col_name in ('unit_id', 'location_id', 'store_id'):
         if col_name not in cols:
             db.session.execute(text(f"ALTER TABLE item ADD COLUMN {col_name} INTEGER"))
+    if 'is_visible' not in cols:
+        db.session.execute(text("ALTER TABLE item ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT 1"))
     db.session.commit()
 
     # Seed any previously saved Settings managed_options_<field>

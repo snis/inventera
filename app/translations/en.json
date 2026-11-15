@@ -71,7 +71,9 @@
     "location_placeholder": "e.g. Pantry, Bathroom, Kitchen",
     "store_placeholder": "e.g. Supermarket, Pharmacy",
     "category_placeholder": "e.g. Cleaning, Medicine",
-    "unit_placeholder": "e.g. pcs, packs, bottles"
+    "unit_placeholder": "e.g. pcs, packs, bottles",
+    "show_item": "Visible in Inventory (click to hide)",
+    "hide_item": "Hidden in Inventory (click to show)"
   },
   "settings": {
     "title": "Settings",

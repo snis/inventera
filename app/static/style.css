@@ -464,7 +464,7 @@ button:hover {
 
 /* 8-kolumnslayout för Hantera artiklar (summa 100%) */
 .inventory-table th:nth-child(1),
-.inventory-table td:nth-child(1) { width: 22%; } /* Benämning */
+.inventory-table td:nth-child(1) { width: 21%; } /* Benämning */
 
 .inventory-table th:nth-child(2),
 .inventory-table td:nth-child(2) { width: 7%; }  /* Antal */
@@ -473,19 +473,19 @@ button:hover {
 .inventory-table td:nth-child(3) { width: 8%; }  /* Miniminivå */
 
 .inventory-table th:nth-child(4),
-.inventory-table td:nth-child(4) { width: 11%; } /* Enhet */
+.inventory-table td:nth-child(4) { width: 10%; } /* Enhet */
 
 .inventory-table th:nth-child(5),
-.inventory-table td:nth-child(5) { width: 16%; } /* Plats */
+.inventory-table td:nth-child(5) { width: 15%; } /* Plats */
 
 .inventory-table th:nth-child(6),
-.inventory-table td:nth-child(6) { width: 16%; } /* Inköpsställe */
+.inventory-table td:nth-child(6) { width: 15%; } /* Inköpsställe */
 
 .inventory-table th:nth-child(7),
 .inventory-table td:nth-child(7) { width: 9%; white-space: nowrap; }  /* Uppdaterad */
 
 .inventory-table th:nth-child(8),
-.inventory-table td:nth-child(8) { width: 11%; white-space: nowrap; overflow: visible; } /* Åtgärd */
+.inventory-table td:nth-child(8) { width: 15%; white-space: nowrap; overflow: visible; } /* Åtgärd */
 
 /* För alla skärmar */
 .input-name, .input-unit, .input-category {
@@ -1326,4 +1326,32 @@ button:hover {
 .sort-icon {
   font-size: 0.8em;
   opacity: 0.85;
+}
+
+/* Visibility toggle button and dimmed hidden rows */
+button.toggle-visibility {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 8px;
+  border: none;
+  background-color: var(--ha-grey, #757575);
+  color: #ffffff;
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin: 0 3px;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+button.toggle-visibility.is-hidden {
+  background-color: #424242;
+  opacity: 0.8;
+}
+
+tr.row-hidden {
+  opacity: 0.55;
 }

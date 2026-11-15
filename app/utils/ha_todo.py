@@ -160,7 +160,7 @@ def sync_low_inventory_to_ha() -> Dict[str, Any]:
             'message': t('api.ha_not_configured')
         }
 
-    low_items = Item.query.filter(Item.quantity <= Item.alert_quantity).order_by(Item.name).all()
+    low_items = Item.query.filter(Item.is_visible == True, Item.quantity <= Item.alert_quantity).order_by(Item.name).all()
     if not low_items:
         return {
             'status': 'success',
