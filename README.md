@@ -44,17 +44,15 @@ services:
 
 ### Local Development
 
-1. Clone the repository and create a virtual environment:
+1. Clone the repository and sync dependencies with [uv](https://docs.astral.sh/uv/):
    ```bash
    git clone https://github.com/snis/inventera.git
    cd inventera
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
    ```
 2. Run the application:
    ```bash
-   python run.py
+   uv run run.py
    ```
 3. Open `http://localhost:5000` in your browser.
 
@@ -102,7 +100,8 @@ inventera/
 │       ├── i18n.py             # JSON translation loader & locale detection
 │       └── responses.py        # AJAX/HTML response helpers
 ├── instance/                   # SQLite database directory (gitignored)
+├── pyproject.toml              # Project metadata & dependencies (uv)
+├── uv.lock                     # Locked dependency versions
 ├── run.py                      # Application entry point
-├── Dockerfile
-└── requirements.txt
+└── Dockerfile
 ```

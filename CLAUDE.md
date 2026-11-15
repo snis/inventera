@@ -3,8 +3,9 @@
 Guidance for AI assistants working in the Inventera repository.
 
 ## Build & Run Commands
-- Run locally: `python run.py`
-- Syntax check: `python3 -m py_compile app/__init__.py app/models/item.py app/models/settings.py app/controllers/main.py app/controllers/inventory.py app/controllers/settings.py app/utils/helpers.py app/utils/ha_todo.py app/utils/i18n.py`
+- Install/sync dependencies: `uv sync`
+- Run locally: `uv run run.py`
+- Syntax check: `uv run python -m py_compile app/__init__.py app/models/item.py app/models/settings.py app/controllers/main.py app/controllers/inventory.py app/controllers/settings.py app/utils/helpers.py app/utils/ha_todo.py app/utils/i18n.py`
 - Translation JSON check: `python3 -m json.tool app/translations/sv.json >/dev/null && python3 -m json.tool app/translations/en.json >/dev/null`
 - Docker build: `docker build -t inventera .`
 - Production deploy (`pod01`): `cd /opt/docker/homemade && docker compose build --no-cache inventory-app && docker compose up -d inventory-app`
