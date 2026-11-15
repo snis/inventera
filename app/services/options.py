@@ -16,17 +16,18 @@ def get_distinct_field_values(field_name: str) -> list[str]:
     """Return sorted distinct non-empty values for a managed option field."""
     if field_name in OPTION_MODELS:
         model = OPTION_MODELS[field_name]
-        return [row.name for row in model.query.order_by(db.func.lower(model.name)).all()]
+        return sorted((row.name for row in model.query.all()), key=str.casefold)
     return []
 
 
 def get_or_create_option(field_name: str, name: str):
-    """Fetch existing option row (case-insensitive) or stage a new one."""
+    """Fetch existing option row (Unicode case-insensitive) or stage a new one."""
     clean = (name or "").strip()
     if not clean:
         return None
+    clean_cf = clean.casefold()
     model = OPTION_MODELS[field_name]
-    existing = model.query.filter(db.func.lower(model.name) == clean.lower()).first()
+    existing = next((row for row in model.query.all() if row.name.casefold() == clean_cf), None)
     if existing:
         return existing
     created = model(name=clean)
@@ -36,9 +37,9 @@ def get_or_create_option(field_name: str, name: str):
 
 
 def get_managed_options(field_name: str):
-    """Return all option rows (with .id and .name) for a field sorted by name."""
+    """Return all option rows (with .id and .name) for a field sorted by Unicode casefold."""
     model = OPTION_MODELS[field_name]
-    return model.query.order_by(db.func.lower(model.name)).all()
+    return sorted(model.query.all(), key=lambda row: row.name.casefold())
 
 
 def save_managed_options_crud(

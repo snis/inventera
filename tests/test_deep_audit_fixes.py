@@ -367,3 +367,163 @@ def test_cannot_delete_unit_in_use_and_settings_confirm_attr_valid(app, client):
     assert 'id="restore-backup-form"' in html
     assert "data-confirm=" in html
     assert 'onsubmit="return confirm(' not in html
+
+
+def test_inventory_pagination_0_50_51_and_last_page(app, client):
+    # 0 items
+    assert client.get("/inventory").status_code == 200
+
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        for i in range(50):
+            db.session.add(
+                Item(name=f"Artikel {i:02d}", quantity=1, alert_quantity=0, unit="st", unit_id=u.id)
+            )
+        db.session.commit()
+
+    # 50 items (1 page)
+    assert client.get("/inventory").status_code == 200
+
+    with app.app_context():
+        u = Unit.query.first()
+        db.session.add(
+            Item(name="Artikel 50", quantity=1, alert_quantity=0, unit="st", unit_id=u.id)
+        )
+        db.session.commit()
+
+    # 51 items (2 pages)
+    res_p1 = client.get("/inventory/1")
+    res_p2 = client.get("/inventory/2")
+    assert res_p1.status_code == 200
+    assert res_p2.status_code == 200
+    assert "Sida 2 av 2" in res_p2.get_data(as_text=True)
+
+
+def test_ingress_data_url_not_corrupted_by_zero_in_token(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(id=7, name="Mjölk", quantity=1, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+
+    html = client.get(
+        "/inventory",
+        headers={"X-Ingress-Path": "/api/hassio_ingress/abc0xyz"},
+    ).get_data(as_text=True)
+    assert 'data-url="/api/hassio_ingress/abc0xyz/toggle_visibility/7"' in html
+    assert 'data-url="/api/hassio_ingress/abc0xyz/remove_item/7"' in html
+    assert ".replace('0'" not in html
+
+
+def test_swedish_unicode_locations_and_stores_backup_roundtrip(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        db.session.add_all(
+            [
+                Item(
+                    name="Lampor",
+                    quantity=2,
+                    alert_quantity=1,
+                    unit="st",
+                    unit_id=u.id,
+                    location="Övervåning",
+                    store="ÖoB",
+                ),
+                Item(
+                    name="Påsar",
+                    quantity=5,
+                    alert_quantity=2,
+                    unit="st",
+                    unit_id=u.id,
+                    location="Återvinning",
+                    store="ÖoB",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    dl = client.get("/settings/backup")
+    assert dl.status_code == 200
+    payload = json.loads(dl.get_data(as_text=True))
+    # Simulate mixed-case Swedish option list + item values
+    payload["locations"] = ["övervåning", "återvinning"]
+    payload["stores"] = ["öob"]
+
+    res = client.post(
+        "/settings/restore",
+        data={"backup_file": (io.BytesIO(json.dumps(payload).encode("utf-8")), "se.json")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 302
+
+
+def test_huge_option_id_returns_400_and_settings_error_returns_500(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Ost", quantity=1, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+        item_id = item.id
+
+    res = client.post(
+        "/update_items",
+        data={
+            f"update_item_{item_id}": str(item_id),
+            f"name_{item_id}": "Ost",
+            f"quantity_{item_id}": "1",
+            f"alert_quantity_{item_id}": "1",
+            f"unit_{item_id}": str(10**40),
+        },
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res.status_code == 400
+
+    with patch("app.controllers.settings.get_ha_config", side_effect=RuntimeError("boom")):
+        res_500 = client.get("/settings")
+    assert res_500.status_code == 500
+
+
+def test_metadata_rename_preserves_last_checked_date(app, client):
+    from datetime import datetime
+
+    old_dt = datetime(2020, 5, 1, 12, 0, 0)
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(
+            name="GammaltNamn",
+            quantity=3,
+            alert_quantity=1,
+            unit="st",
+            unit_id=u.id,
+            last_checked=old_dt,
+        )
+        db.session.add(item)
+        db.session.commit()
+        item_id, unit_id = item.id, u.id
+
+    res = client.post(
+        "/update_items",
+        data={
+            f"update_item_{item_id}": str(item_id),
+            f"name_{item_id}": "NyttNamn",
+            f"quantity_{item_id}": "3",
+            f"alert_quantity_{item_id}": "1",
+            f"unit_{item_id}": str(unit_id),
+        },
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert res.status_code == 200
+    with app.app_context():
+        updated = db.session.get(Item, item_id)
+        assert updated.name == "NyttNamn"
+        assert updated.last_checked == old_dt

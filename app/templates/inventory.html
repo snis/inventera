@@ -53,6 +53,7 @@
                             </td>
                             <td id="item-unit-{{ item.id }}" style="background-image: linear-gradient(to right, {{ get_warning_color(item.quantity, item.alert_quantity) }}, {{ get_row_color(item.last_checked) }})">
                                 <select name="unit_{{ item.id }}" class="input-unit">
+                                    <option value="">—</option>
                                     {% for u in distinct_units %}
                                         <option value="{{ u.id }}" {% if item.unit_id == u.id or (not item.unit_id and item.unit == u.name) %}selected{% endif %}>{{ u.name }}</option>
                                     {% endfor %}
@@ -79,10 +80,10 @@
                             </td>
                             <td style="background-color: {{ get_row_color(item.last_checked) }}; white-space: nowrap;">
                                 <button class="apply item-update-btn" type="button" data-item-id="{{ item.id }}" title="{{ t('common.save') }}"></button>
-                                <button class="toggle-visibility item-visibility-btn {% if not item.is_visible %}is-hidden{% endif %}" type="button" data-item-id="{{ item.id }}" data-visible="{{ 'true' if item.is_visible else 'false' }}" title="{{ t('manage.show_item') if item.is_visible else t('manage.hide_item') }}">
+                                <button class="toggle-visibility item-visibility-btn {% if not item.is_visible %}is-hidden{% endif %}" type="button" data-item-id="{{ item.id }}" data-url="{{ url_for('inventory.toggle_visibility', item_id=item.id) }}" data-visible="{{ 'true' if item.is_visible else 'false' }}" title="{{ t('manage.show_item') if item.is_visible else t('manage.hide_item') }}">
                                     <i class="fa {{ 'fa-eye' if item.is_visible else 'fa-eye-slash' }}"></i>
                                 </button>
-                                <button class="remove-item item-remove-btn" type="button" data-item-id="{{ item.id }}" title="{{ t('common.delete') }}"></button>
+                                <button class="remove-item item-remove-btn" type="button" data-item-id="{{ item.id }}" data-url="{{ url_for('inventory.remove_item', item_id=item.id) }}" title="{{ t('common.delete') }}"></button>
                             </td>
                         </tr>
                 {% endfor %}
@@ -184,7 +185,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: "{{ url_for('inventory.toggle_visibility', item_id=0) }}".replace('0', itemId),
+                    url: btn.data('url'),
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     success: function(response) {
                         btn.css('opacity', '1');
@@ -204,9 +205,9 @@
                             alert(response.message || T.common.error_generic);
                         }
                     },
-                    error: function() {
+                    error: function(xhr) {
                         btn.css('opacity', '1');
-                        alert(T.common.error_generic);
+                        alert((xhr.responseJSON && xhr.responseJSON.message) || T.common.error_generic);
                     }
                 });
             });
@@ -224,7 +225,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: "{{ url_for('inventory.remove_item', item_id=0) }}".replace('0', itemId),
+                    url: btn.data('url'),
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     success: function(response) {
                         btn.css('opacity', '1');

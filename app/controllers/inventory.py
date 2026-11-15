@@ -33,17 +33,16 @@ def _parse_non_negative_int(raw: str | None, field_label: str) -> int:
 
 
 def _resolve_option(model, raw_id: str | None, *, required: bool = False):
-    """Resolve an option row by ID string, raising ValueError if invalid."""
+    """Resolve an option row by ID string, raising ValueError if invalid or out of range."""
     clean = (raw_id or "").strip()
     if not clean:
         if required:
             raise ValueError(t("api.missing_fields"))
         return None
-    if not clean.isdigit():
-        raise ValueError(f"Invalid option ID: {clean}")
-    obj = db.session.get(model, int(clean))
+    opt_id = _parse_non_negative_int(clean, "option_id")
+    obj = db.session.get(model, opt_id)
     if not obj:
-        raise ValueError(f"Option not found: {clean}")
+        raise ValueError(f"Option not found: {opt_id}")
     return obj
 
 
@@ -57,20 +56,22 @@ def _apply_item_update(item: Item, item_id: int) -> None:
     alert_quantity = _parse_non_negative_int(
         request.form.get(f"alert_quantity_{item_id}"), "alert_quantity"
     )
-    unit_obj = _resolve_option(Unit, request.form.get(f"unit_{item_id}"), required=True)
+    unit_obj = _resolve_option(Unit, request.form.get(f"unit_{item_id}"), required=False)
     loc_obj = _resolve_option(Location, request.form.get(f"location_{item_id}"))
     store_obj = _resolve_option(Store, request.form.get(f"store_{item_id}"))
 
+    quantity_changed = item.quantity != quantity
     item.name = name
     item.quantity = quantity
     item.alert_quantity = alert_quantity
-    item.unit_id = unit_obj.id
-    item.unit = unit_obj.name
+    item.unit_id = unit_obj.id if unit_obj else None
+    item.unit = unit_obj.name if unit_obj else ""
     item.location_id = loc_obj.id if loc_obj else None
     item.location = loc_obj.name if loc_obj else ""
     item.store_id = store_obj.id if store_obj else None
     item.store = store_obj.name if store_obj else ""
-    item.last_checked = utc_now()
+    if quantity_changed or item.last_checked is None:
+        item.last_checked = utc_now()
 
 
 def _create_item_from_form() -> Item:
@@ -205,7 +206,10 @@ def inventory(page: int = 1):
         query = Item.query.order_by(primary_order, db.func.lower(Item.name).asc())
         total_items = query.count()
         total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
+        page = max(1, min(page, total_pages))
         items = query.limit(items_per_page).offset((page - 1) * items_per_page).all()
+        start_page = max(1, page - 2)
+        end_page = min(total_pages, page + 2)
 
         return render_template(
             "inventory.html",
@@ -220,6 +224,8 @@ def inventory(page: int = 1):
             pagination={
                 "page": page,
                 "total_pages": total_pages,
+                "start_page": start_page,
+                "end_page": end_page,
                 "has_prev": page > 1,
                 "has_next": page < total_pages,
                 "total_items": total_items,

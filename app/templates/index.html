@@ -215,7 +215,10 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
-                        saveBtn.css('opacity', '1').removeClass('is-dirty');
+                        saveBtn.css('opacity', '1');
+                        if (String(input.val()) === String(newQuantity)) {
+                            saveBtn.removeClass('is-dirty');
+                        }
                         if (response.status === 'success') {
                             // Update cell colors
                             $('#item-name-' + response.item_id).css('background-color', response.warning_color);
@@ -236,7 +239,7 @@
                     error: function(err) {
                         saveBtn.css('opacity', '1');
                         console.error('Error saving:', err);
-                        alert(T.index.save_error);
+                        alert((err.responseJSON && err.responseJSON.message) || T.index.save_error);
                     }
                 });
             }

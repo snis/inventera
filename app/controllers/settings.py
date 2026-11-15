@@ -91,9 +91,9 @@ def settings():
             saved=request.args.get("saved") == "1",
             restored=request.args.get("restored") == "1",
         )
-    except Exception as e:
-        current_app.logger.error(f"Error rendering settings page: {str(e)}")
-        return render_template("error.html", message=t("common.error_generic"))
+    except Exception:
+        current_app.logger.exception("Error rendering settings page")
+        return render_template("error.html", message=t("common.error_generic")), 500
 
 
 @settings_bp.route("/settings/save", methods=["POST"])

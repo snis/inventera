@@ -11,7 +11,7 @@
             <span class="page-link disabled">&laquo; Föregående</span>
         {% endif %}
         
-        {% for p in range(max(1, pagination.page-2), min(pagination.total_pages+1, pagination.page+3)) %}
+        {% for p in range(pagination.start_page, pagination.end_page + 1) %}
             {% if p == pagination.page %}
                 <span class="page-link active">{{ p }}</span>
             {% else %}
