@@ -19,7 +19,7 @@
     {% include 'includes/pagination.html' %}
 
     <form id="inventory-form" action="{{ url_for('inventory.update_items') }}" method="post">
-        <div style="overflow-x: auto;">
+        <div class="table-scroll-wrapper">
         <table class="mobile-table-layout inventory-table">
             <thead>
                 <tr>

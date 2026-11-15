@@ -102,7 +102,7 @@ z-index: -1;
   box-shadow: 0 10px 30px var(--shadow-color);
   margin: 20px auto;
   transition: all 0.3s ease;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1, h2, h3 {
@@ -423,6 +423,10 @@ button:hover {
 }
 
 /* Inventory table layout */
+.table-scroll-wrapper {
+  overflow: visible;
+}
+
 .inventory-table {
   table-layout: fixed !important; /* Tvinga fixed layout */
   width: 100%;
@@ -430,6 +434,23 @@ button:hover {
   border-collapse: collapse;
   max-width: none; /* Förhindra ärva max-width */
   margin: 1em 0;
+  overflow: visible;
+}
+
+.inventory-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--table-header-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.inventory-table thead th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.inventory-table thead th:last-child {
+  border-top-right-radius: 8px;
 }
 
 .inventory-table th,
@@ -498,11 +519,15 @@ button:hover {
 }
 
 @media screen and (max-width: 1024px) {
-  .inventory-table {
-    display: block;
+  .table-scroll-wrapper {
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 75vh;
+  }
+
+  .inventory-table {
+    display: table;
     white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
     table-layout: auto; /* Tillbaka till auto på små skärmar för bättre scrollning */
   }
   
