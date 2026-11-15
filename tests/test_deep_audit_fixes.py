@@ -200,8 +200,10 @@ def test_ha_malformed_200_empty_dict_and_unmapped_errors(app, monkeypatch):
 
 def test_salt_does_not_match_salt_fint_with_parens():
     assert _is_item_present("Salt", ["salt (fint) (0 st)"]) is False
+    assert _is_item_present("Salt", ["salt (fint)"]) is False
     assert _is_item_present("Salt", ["salt (0 st)"]) is True
     assert _is_item_present("Salt (fint)", ["salt (fint) (0 st)"]) is True
+    assert _is_item_present("Salt (fint)", ["salt (fint)"]) is True
 
 
 @given(
@@ -253,15 +255,38 @@ def test_backup_export_and_atomic_restore(app, client):
     assert backup_data["items"][0]["name"] == "Kaffe"
     assert backup_data["items"][0]["is_visible"] is False
 
-    # Invalid restore leaves existing data intact
-    bad_restore = client.post(
-        "/settings/restore",
-        data={"backup_file": (io.BytesIO(b"{not-json"), "bad.json")},
-        content_type="multipart/form-data",
-    )
-    assert bad_restore.status_code == 400
-    with app.app_context():
-        assert Item.query.filter_by(name="Kaffe").count() == 1
+    # Reject invalid JSON, XSS calendar_url, float quantity, string bool, unknown version
+    invalid_payloads = [
+        b"{not-json",
+        json.dumps({**backup_data, "settings": {"calendar_url": "javascript:alert(1)"}}).encode(
+            "utf-8"
+        ),
+        json.dumps(
+            {
+                **backup_data,
+                "items": [{**backup_data["items"][0], "quantity": 1.9}],
+            }
+        ).encode("utf-8"),
+        json.dumps(
+            {
+                **backup_data,
+                "items": [{**backup_data["items"][0], "is_visible": "false"}],
+            }
+        ).encode("utf-8"),
+        json.dumps({"version": "9.9", "items": []}).encode("utf-8"),
+        json.dumps({**backup_data, "settings": {"ha_store_todo_map": {"ICA": 123}}}).encode(
+            "utf-8"
+        ),
+    ]
+    for payload_bytes in invalid_payloads:
+        bad_restore = client.post(
+            "/settings/restore",
+            data={"backup_file": (io.BytesIO(payload_bytes), "bad.json")},
+            content_type="multipart/form-data",
+        )
+        assert bad_restore.status_code == 400
+        with app.app_context():
+            assert Item.query.filter_by(name="Kaffe").count() == 1
 
     # Valid restore replaces data cleanly
     backup_data["items"] = [

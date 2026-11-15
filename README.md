@@ -57,7 +57,7 @@ services:
    ```
 3. Open `http://localhost:5000` in your browser.
 
-Database schema creation and upgrades from older v1/v2.0 databases are handled via Alembic/Flask-Migrate (`migrations/`). In Home Assistant Add-on mode (`config.yaml`), the SQLite database and persistent `.secret_key` are stored in `/data`.
+Database schema creation is handled via Alembic/Flask-Migrate (`migrations/`). In Home Assistant Add-on mode (`config.yaml`), the SQLite database and persistent `.secret_key` are stored in `/data`. You can also export and restore your inventory and non-secret settings as JSON under **Settings -> Backup & Restore**.
 
 ## Environment Variables
 

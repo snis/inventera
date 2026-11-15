@@ -5,7 +5,6 @@ language selection, and general app settings.
 """
 
 import json
-from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -29,7 +28,7 @@ from app.integrations.home_assistant import (
     save_store_todo_map,
 )
 from app.models.settings import Settings
-from app.services.backup import export_backup_payload, restore_backup_payload
+from app.services.backup import export_backup_payload, restore_backup_payload, validate_calendar_url
 from app.services.options import (
     OPTION_FIELDS,
     get_distinct_field_values,
@@ -97,17 +96,6 @@ def settings():
         return render_template("error.html", message=t("common.error_generic"))
 
 
-def _validate_calendar_url(raw_url: str) -> str:
-    """Allow empty string or http(s) URLs with a valid host."""
-    clean = raw_url.strip()
-    if not clean:
-        return ""
-    parsed = urlparse(clean)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise ValueError(t("api.invalid_calendar_url"))
-    return clean
-
-
 @settings_bp.route("/settings/save", methods=["POST"])
 def save_settings():
     """Persist Home Assistant connection, store mappings, and general settings atomically."""
@@ -116,7 +104,7 @@ def save_settings():
         ha_url = (request.form.get("ha_url") or "").strip().rstrip("/")
         ha_token = (request.form.get("ha_token") or "").strip()
         default_todo = (request.form.get("ha_default_todo_entity") or "").strip()
-        calendar_url = _validate_calendar_url(request.form.get("calendar_url") or "")
+        calendar_url = validate_calendar_url(request.form.get("calendar_url") or "")
         ha_lists_available = request.form.get("ha_lists_available", "1") == "1"
 
         # Validate standalone URL change requires explicit token

@@ -203,11 +203,16 @@
                         statusEl.empty().append(okSpan);
                         if (resp.todo_entities && resp.todo_entities.length > 0) {
                             $('#ha_lists_available').val('1');
+                            const discoveredIds = new Set(resp.todo_entities.map(function(e) { return e.entity_id; }));
                             $('.todo-select').each(function() {
                                 const select = $(this);
                                 const currentVal = select.val();
                                 const firstOpt = select.find('option:first').clone();
                                 select.empty().append(firstOpt);
+                                if (currentVal && !discoveredIds.has(currentVal)) {
+                                    const preserved = $('<option></option>').val(currentVal).text(currentVal + ' (' + {{ t('settings.saved_offline')|tojson }} + ')').prop('selected', true);
+                                    select.append(preserved);
+                                }
                                 resp.todo_entities.forEach(function(ent) {
                                     const opt = $('<option></option>').val(ent.entity_id).text(ent.name + ' (' + ent.entity_id + ')');
                                     if (ent.entity_id === currentVal) opt.prop('selected', true);

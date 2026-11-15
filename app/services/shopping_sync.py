@@ -1,6 +1,7 @@
 """Shopping list synchronization service to Home Assistant To-do lists."""
 
 import logging
+import re
 import threading
 from typing import Any
 
@@ -13,14 +14,13 @@ from app.utils.i18n import t
 
 logger = logging.getLogger(__name__)
 _sync_lock = threading.Lock()
+_QTY_UNIT_SUFFIX_RE = re.compile(r"\s+\(\d+(?:[.,]\d+)?\s+[^()]+\)$")
 
 
 def _extract_base_name(summary: str) -> str:
     """Strip trailing ' (<qty> <unit>)' suffix from a HA to-do summary if present."""
     clean = summary.strip().casefold()
-    if clean.endswith(")") and " (" in clean:
-        return clean.rsplit(" (", 1)[0].strip()
-    return clean
+    return _QTY_UNIT_SUFFIX_RE.sub("", clean).strip()
 
 
 def _is_item_present(item_name: str, existing_summaries: list[str]) -> bool:
