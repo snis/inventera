@@ -82,7 +82,7 @@ inventera/
 │   │   └── settings.py         # Settings (/settings), HA test, language switcher
 │   ├── models/
 │   │   ├── item.py             # Item, Unit, Location, Store SQLAlchemy models
-│   │   └── settings.py         # Settings key-value store & legacy CategoryTaskMapping
+│   │   └── settings.py         # Settings key-value store
 │   ├── static/
 │   │   ├── style.css           # Responsive light/dark styling & HA theme variables
 │   │   └── ha-theme.js         # Parent HA iframe theme & dark mode bridge
@@ -106,7 +106,3 @@ inventera/
 ├── Dockerfile
 └── requirements.txt
 ```
-
-## Notes
-
-- Legacy Google Tasks OAuth documentation from v1.x is preserved in [GTASKS-README.md](GTASKS-README.md) for historical reference; v2.x uses Home Assistant `todo.*` entities directly.
