@@ -1325,3 +1325,92 @@ def test_ha_sync_rename_does_not_duplicate_on_descriptionless_shopping_list(app,
             assert r3["synced_count"] == 0
             assert r3["skipped_count"] == 1
             assert len(ha_store) == 1
+
+
+def test_ha_sync_removes_restocked_items_only_when_enabled(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        salt = Item(
+            name="Salt",
+            quantity=3,
+            alert_quantity=1,
+            unit="st",
+            unit_id=u.id,
+            task_id="uid-salt",
+        )
+        db.session.add(salt)
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+        salt_id = salt.id
+
+    ha_store: list[dict[str, str]] = [
+        {
+            "uid": "uid-salt",
+            "summary": "Salt (0 st)",
+            "description": "[inventera_id:1]",
+            "status": "needs_action",
+        },
+        {
+            "uid": "uid-manual",
+            "summary": "Köp blommor",
+            "description": "",
+            "status": "needs_action",
+        },
+    ]
+
+    class FakeResp:
+        def __init__(self, status_code: int, payload: dict):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers=None, timeout=5):
+        if "/api/states/todo.shopping" in url:
+            return FakeResp(
+                200, {"entity_id": "todo.shopping", "attributes": {"supported_features": 79}}
+            )
+        raise AssertionError(f"Unexpected GET URL: {url}")
+
+    def fake_post(url, headers=None, json=None, timeout=5):
+        if "todo/get_items" in url:
+            return FakeResp(200, {"service_response": {"todo.shopping": {"items": ha_store}}})
+        if "todo/remove_item" in url:
+            target = (json or {}).get("item")
+            ha_store[:] = [e for e in ha_store if e["uid"] != target and e["summary"] != target]
+            return FakeResp(200, {})
+        raise AssertionError(f"Unexpected POST URL: {url}")
+
+    with (
+        patch("app.integrations.home_assistant.requests.get", fake_get),
+        patch("app.integrations.home_assistant.requests.post", fake_post),
+    ):
+        # 1. Disabled by default -> does not remove
+        with app.app_context():
+            res_off = sync_low_inventory_to_ha()
+            assert res_off["removed_count"] == 0
+            assert len(ha_store) == 2
+
+        # 2. Enable via /settings/save
+        save_res = client.post(
+            "/settings/save",
+            data={
+                "ha_default_todo_entity": "todo.shopping",
+                "ha_remove_restocked_items": "on",
+                "ha_lists_available": "0",
+            },
+        )
+        assert save_res.status_code == 302
+
+        # 3. Sync again -> removes Salt, keeps manual task
+        with app.app_context():
+            res_on = sync_low_inventory_to_ha()
+            assert res_on["status"] == "success"
+            assert res_on["removed_count"] == 1
+            assert [e["uid"] for e in ha_store] == ["uid-manual"]
+            assert db.session.get(Item, salt_id).task_id is None

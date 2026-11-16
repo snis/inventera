@@ -87,6 +87,7 @@ def settings():
 
         store_todo_map = get_store_todo_map()
         default_todo_entity = Settings.get("ha_default_todo_entity", "")
+        remove_restocked_items = Settings.get("ha_remove_restocked_items", "false") == "true"
         managed_options = {field: get_managed_options(field) for field in OPTION_FIELDS}
 
         # Collect all stores from Store table and existing mappings
@@ -103,6 +104,7 @@ def settings():
             stores=stores,
             store_todo_map=store_todo_map,
             default_todo_entity=default_todo_entity,
+            remove_restocked_items=remove_restocked_items,
             managed_options=managed_options,
             saved=request.args.get("saved") == "1",
             restored=request.args.get("restored") == "1",
@@ -170,6 +172,10 @@ def save_settings():
 
         if ha_lists_available or default_todo:
             Settings.set("ha_default_todo_entity", default_todo)
+        Settings.set(
+            "ha_remove_restocked_items",
+            "true" if request.form.get("ha_remove_restocked_items") == "on" else "false",
+        )
         Settings.set("calendar_url", calendar_url)
 
         if ha_lists_available:

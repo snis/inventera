@@ -64,10 +64,19 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
             .order_by(Item.name)
             .all()
         )
-        if not low_items:
+        remove_restocked = Settings.get("ha_remove_restocked_items", "false") == "true"
+        restocked_items = (
+            Item.query.filter(Item.is_visible.is_(True), Item.quantity > Item.alert_quantity)
+            .order_by(Item.name)
+            .all()
+            if remove_restocked
+            else []
+        )
+        if not low_items and not restocked_items:
             return {
                 "status": "success",
                 "synced_count": 0,
+                "removed_count": 0,
                 "failed_count": 0,
                 "skipped_count": 0,
                 "unmapped_count": 0,
@@ -82,7 +91,7 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
             if discovered:
                 default_entity = discovered[0]["entity_id"]
 
-        return _execute_sync(client, low_items, store_map, default_entity)
+        return _execute_sync(client, low_items, store_map, default_entity, restocked_items)
 
 
 def _fetch_entries_for_entity(
@@ -136,10 +145,12 @@ def _execute_sync(
     low_items: list[Item],
     store_map: dict[str, str],
     default_entity: str,
+    restocked_items: list[Item] | None = None,
 ) -> dict[str, Any]:
     """Execute the locked read-check-write synchronization against Home Assistant."""
     existing_by_entity: dict[str, list[dict[str, Any]] | None] = {}
     synced: list[str] = []
+    removed: list[str] = []
     skipped: list[str] = []
     failed: list[str] = []
     unmapped: list[str] = []
@@ -210,13 +221,42 @@ def _execute_sync(
             failed.append(clean_name)
             logger.error(f"Failed to add {clean_name} to {target_entity}")
 
+    for item in restocked_items or []:
+        store = (item.store or "").strip()
+        target_entity = store_map.get(store) or default_entity
+        if not target_entity:
+            continue
+
+        if target_entity not in existing_by_entity:
+            existing_by_entity[target_entity] = _fetch_entries_for_entity(client, target_entity)
+
+        existing_entries = existing_by_entity[target_entity]
+        clean_name = item.name.strip()
+        if existing_entries is None:
+            failed.append(clean_name)
+            continue
+
+        matched = _find_matching_entry(item, clean_name, existing_entries)
+        if matched is None:
+            continue
+
+        item_ref = matched.get("uid") or matched.get("summary") or item.task_id or ""
+        if client.remove_todo_item(target_entity, item_ref):
+            synced_updates[item.id] = {"task_id": None, "added_to_task": None}
+            removed.append(clean_name)
+            if matched in existing_entries:
+                existing_entries.remove(matched)
+        else:
+            failed.append(clean_name)
+            logger.error(f"Failed to remove restocked {clean_name} from {target_entity}")
+
     if synced_updates:
         for item_id, fields in synced_updates.items():
             Item.query.filter_by(id=item_id).update(fields, synchronize_session=False)
         db.session.commit()
 
-    all_unmapped = bool(unmapped) and not synced and not skipped and not failed
-    if (failed and not synced) or all_unmapped:
+    all_unmapped = bool(unmapped) and not synced and not removed and not skipped and not failed
+    if (failed and not synced and not removed) or all_unmapped:
         status = "error"
     elif failed or unmapped:
         status = "partial"
@@ -224,8 +264,10 @@ def _execute_sync(
         status = "success"
 
     parts: list[str] = []
-    if synced or (not failed and not all_unmapped):
+    if synced or (not removed and not failed and not all_unmapped):
         parts.append(t("api.sync_added", added=len(synced)))
+    if removed:
+        parts.append(t("api.sync_removed", removed=len(removed)))
     if skipped:
         parts.append(t("api.sync_skipped", skipped=len(skipped)))
     if failed:
@@ -236,10 +278,12 @@ def _execute_sync(
     return {
         "status": status,
         "synced_count": len(synced),
+        "removed_count": len(removed),
         "failed_count": len(failed),
         "skipped_count": len(skipped),
         "unmapped_count": len(unmapped),
         "synced_items": synced,
+        "removed_items": removed,
         "failed_items": failed,
         "skipped_items": skipped,
         "unmapped_items": unmapped,

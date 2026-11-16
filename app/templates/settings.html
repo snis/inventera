@@ -116,6 +116,14 @@
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <div style="margin-top: 15px;">
+                    <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="ha_remove_restocked_items" name="ha_remove_restocked_items" {% if remove_restocked_items %}checked{% endif %} style="width: 18px; height: 18px;">
+                        <span><b>{{ t('settings.remove_restocked_label') }}</b></span>
+                    </label>
+                    <p class="instruction-text" style="margin: 4px 0 0 26px; font-size: 0.9em;">{{ t('settings.remove_restocked_desc') }}</p>
+                </div>
             </div>
 
             <!-- Dropdown Options Management -->

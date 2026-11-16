@@ -14,7 +14,12 @@ from app.utils.i18n import t
 
 BACKUP_VERSION = "2.5"
 MAX_SQLITE_INT = 2_147_483_647
-BACKUP_SETTING_KEYS = ("ha_default_todo_entity", "ha_store_todo_map", "calendar_url")
+BACKUP_SETTING_KEYS = (
+    "ha_default_todo_entity",
+    "ha_store_todo_map",
+    "ha_remove_restocked_items",
+    "calendar_url",
+)
 
 
 def validate_calendar_url(raw_url: str) -> str:
@@ -87,6 +92,18 @@ def _validate_settings_dict(raw_settings: Any) -> dict[str, str]:
         ):
             raise ValueError("Backup 'ha_store_todo_map' keys and values must be strings")
         validated["ha_store_todo_map"] = json.dumps(parsed_map, ensure_ascii=False)
+
+    if (
+        "ha_remove_restocked_items" in raw_settings
+        and raw_settings["ha_remove_restocked_items"] is not None
+    ):
+        raw_rem = raw_settings["ha_remove_restocked_items"]
+        if isinstance(raw_rem, bool):
+            validated["ha_remove_restocked_items"] = "true" if raw_rem else "false"
+        elif isinstance(raw_rem, str) and raw_rem.strip().lower() in ("true", "false"):
+            validated["ha_remove_restocked_items"] = raw_rem.strip().lower()
+        else:
+            raise ValueError("Backup 'ha_remove_restocked_items' must be 'true' or 'false'")
 
     return validated
 
@@ -275,6 +292,7 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
     backup_defaults = {
         "ha_default_todo_entity": "",
         "ha_store_todo_map": "{}",
+        "ha_remove_restocked_items": "false",
         "calendar_url": "",
     }
     for key in BACKUP_SETTING_KEYS:

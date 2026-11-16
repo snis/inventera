@@ -187,3 +187,16 @@ class HomeAssistantTodoClient:
         except Exception as e:
             logger.error(f"Failed to add todo item to {entity_id}: {str(e)}")
             return False
+
+    def remove_todo_item(self, entity_id: str, item_ref: str) -> bool:
+        """Remove an item (by uid or summary) from a Home Assistant to-do list."""
+        if not item_ref:
+            return False
+        try:
+            url = f"{self.base_url}/api/services/todo/remove_item"
+            payload: dict[str, Any] = {"entity_id": entity_id, "item": item_ref}
+            resp = requests.post(url, headers=self.headers, json=payload, timeout=5)
+            return resp.status_code in (200, 201)
+        except Exception as e:
+            logger.error(f"Failed to remove todo item {item_ref} from {entity_id}: {str(e)}")
+            return False
