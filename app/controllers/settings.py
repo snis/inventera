@@ -29,6 +29,7 @@ from app.integrations.home_assistant import (
     save_store_todo_map,
 )
 from app.models.settings import Settings
+from app.presentation.colors import get_row_color_thresholds
 from app.services.backup import export_backup_payload, restore_backup_payload, validate_calendar_url
 from app.services.options import (
     OPTION_FIELDS,
@@ -88,6 +89,7 @@ def settings():
         store_todo_map = get_store_todo_map()
         default_todo_entity = Settings.get("ha_default_todo_entity", "")
         remove_restocked_items = Settings.get("ha_remove_restocked_items", "false") == "true"
+        green_days, orange_days = get_row_color_thresholds()
         managed_options = {field: get_managed_options(field) for field in OPTION_FIELDS}
 
         # Collect all stores from Store table and existing mappings
@@ -105,6 +107,8 @@ def settings():
             store_todo_map=store_todo_map,
             default_todo_entity=default_todo_entity,
             remove_restocked_items=remove_restocked_items,
+            row_color_green_days=green_days,
+            row_color_orange_days=orange_days,
             managed_options=managed_options,
             saved=request.args.get("saved") == "1",
             restored=request.args.get("restored") == "1",
@@ -124,6 +128,16 @@ def save_settings():
         default_todo = (request.form.get("ha_default_todo_entity") or "").strip()
         calendar_url = validate_calendar_url(request.form.get("calendar_url") or "")
         ha_lists_available = request.form.get("ha_lists_available", "1") == "1"
+
+        cur_green, cur_orange = get_row_color_thresholds()
+        raw_green = (request.form.get("row_color_green_days") or str(cur_green)).strip()
+        raw_orange = (request.form.get("row_color_orange_days") or str(cur_orange)).strip()
+        if not raw_green.isdigit() or not raw_orange.isdigit():
+            raise ValueError(t("settings.invalid_color_days"))
+        green_days = int(raw_green)
+        orange_days = int(raw_orange)
+        if green_days < 1 or orange_days < green_days:
+            raise ValueError(t("settings.invalid_color_days"))
 
         # Validate standalone URL change requires explicit token
         if not is_addon and ha_url and ha_url != cfg_url and not ha_token:
@@ -176,6 +190,8 @@ def save_settings():
             "ha_remove_restocked_items",
             "true" if request.form.get("ha_remove_restocked_items") == "on" else "false",
         )
+        Settings.set("row_color_green_days", str(green_days))
+        Settings.set("row_color_orange_days", str(orange_days))
         Settings.set("calendar_url", calendar_url)
 
         if ha_lists_available:

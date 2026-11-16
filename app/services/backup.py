@@ -18,6 +18,8 @@ BACKUP_SETTING_KEYS = (
     "ha_default_todo_entity",
     "ha_store_todo_map",
     "ha_remove_restocked_items",
+    "row_color_green_days",
+    "row_color_orange_days",
     "calendar_url",
 )
 
@@ -104,6 +106,17 @@ def _validate_settings_dict(raw_settings: Any) -> dict[str, str]:
             validated["ha_remove_restocked_items"] = raw_rem.strip().lower()
         else:
             raise ValueError("Backup 'ha_remove_restocked_items' must be 'true' or 'false'")
+
+    for key_name in ("row_color_green_days", "row_color_orange_days"):
+        if key_name in raw_settings and raw_settings[key_name] is not None:
+            raw_days = str(raw_settings[key_name]).strip()
+            if not raw_days.isdigit() or int(raw_days) < 1:
+                raise ValueError(f"Backup '{key_name}' must be a positive integer")
+            validated[key_name] = str(int(raw_days))
+
+    if "row_color_green_days" in validated and "row_color_orange_days" in validated:
+        if int(validated["row_color_orange_days"]) < int(validated["row_color_green_days"]):
+            raise ValueError("Backup 'row_color_orange_days' must be >= 'row_color_green_days'")
 
     return validated
 
@@ -293,6 +306,8 @@ def restore_backup_payload(payload: dict[str, Any]) -> int:
         "ha_default_todo_entity": "",
         "ha_store_todo_map": "{}",
         "ha_remove_restocked_items": "false",
+        "row_color_green_days": "1",
+        "row_color_orange_days": "7",
         "calendar_url": "",
     }
     for key in BACKUP_SETTING_KEYS:

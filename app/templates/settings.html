@@ -126,6 +126,22 @@
                 </div>
             </div>
 
+            <!-- Inventory Age Color Thresholds -->
+            <div class="store-group">
+                <h2><i class="fa fa-paint-brush"></i> {{ t('settings.color_thresholds_heading') }}</h2>
+                <p class="instruction-text" style="margin-bottom: 12px;">{{ t('settings.color_thresholds_desc') }}</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <div>
+                        <label for="row_color_green_days"><b>{{ t('settings.color_green_days') }}</b></label><br>
+                        <input type="number" id="row_color_green_days" name="row_color_green_days" min="1" value="{{ row_color_green_days }}" style="width: 120px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                    </div>
+                    <div>
+                        <label for="row_color_orange_days"><b>{{ t('settings.color_orange_days') }}</b></label><br>
+                        <input type="number" id="row_color_orange_days" name="row_color_orange_days" min="1" value="{{ row_color_orange_days }}" style="width: 120px; padding: 8px; border-radius: 6px; border: 1px solid var(--ha-divider); background: var(--input-bg); color: var(--text-color);">
+                    </div>
+                </div>
+            </div>
+
             <!-- Dropdown Options Management -->
             <div class="store-group">
                 <h2><i class="fa fa-tags"></i> {{ t('settings.dropdown_options_heading') }}</h2>

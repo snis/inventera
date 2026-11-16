@@ -1414,3 +1414,39 @@ def test_ha_sync_removes_restocked_items_only_when_enabled(app, client):
             assert res_on["removed_count"] == 1
             assert [e["uid"] for e in ha_store] == ["uid-manual"]
             assert db.session.get(Item, salt_id).task_id is None
+
+
+def test_row_color_thresholds_three_stage_and_validation(app, client):
+    from datetime import timedelta
+
+    from app.config import utc_now
+    from app.presentation.colors import get_row_color
+
+    # Invalid: orange < green -> 400
+    bad = client.post(
+        "/settings/save",
+        data={
+            "row_color_green_days": "10",
+            "row_color_orange_days": "5",
+            "ha_lists_available": "0",
+        },
+    )
+    assert bad.status_code == 400
+
+    # Valid: green=3, orange=10
+    ok = client.post(
+        "/settings/save",
+        data={
+            "row_color_green_days": "3",
+            "row_color_orange_days": "10",
+            "ha_lists_available": "0",
+        },
+    )
+    assert ok.status_code == 302
+
+    with app.app_context():
+        now = utc_now()
+        assert get_row_color(now - timedelta(days=2)) == "var(--inv-green)"
+        assert get_row_color(now - timedelta(days=3)) == "var(--inv-orange)"
+        assert get_row_color(now - timedelta(days=9)) == "var(--inv-orange)"
+        assert get_row_color(now - timedelta(days=10)) == "var(--inv-red)"
