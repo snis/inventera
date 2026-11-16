@@ -1,4 +1,4 @@
-name: "Inventera"
+name: "Inventory"
 version: "2.5.0"
 slug: "inventera"
 description: "Mobile-friendly inventory and shopping list manager integrated with Home Assistant To-do lists."
@@ -10,7 +10,7 @@ init: false
 ingress: true
 ingress_port: 5000
 panel_icon: "mdi:clipboard-list-outline"
-panel_title: "Inventera"
+panel_title: "Inventory"
 homeassistant_api: true
 options: {}
 schema: {}
