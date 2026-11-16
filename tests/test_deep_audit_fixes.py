@@ -1239,3 +1239,89 @@ def test_ha_sync_omits_description_for_shopping_list_without_feature_64(app):
             assert res["synced_count"] == 1
             assert len(add_payloads) == 1
             assert add_payloads[0] == {"entity_id": "todo.shopping_list", "item": "Bröd (0 st)"}
+
+
+def test_ha_sync_rename_does_not_duplicate_on_descriptionless_shopping_list(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        salt = Item(name="Salt", quantity=0, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(salt)
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping_list")
+        db.session.commit()
+        salt_id, unit_id = salt.id, u.id
+
+    ha_store: list[dict[str, str]] = []
+
+    class FakeResp:
+        def __init__(self, status_code: int, payload: dict):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers=None, timeout=5):
+        if url.endswith("/api/states/todo.shopping_list"):
+            return FakeResp(
+                200,
+                {
+                    "entity_id": "todo.shopping_list",
+                    "attributes": {"supported_features": 15, "friendly_name": "Shopping List"},
+                },
+            )
+        raise AssertionError(f"Unexpected GET URL: {url}")
+
+    def fake_post(url, headers=None, json=None, timeout=5):
+        if "todo/get_items" in url:
+            return FakeResp(200, {"service_response": {"todo.shopping_list": {"items": ha_store}}})
+        if "todo/add_item" in url:
+            if "description" in (json or {}):
+                return FakeResp(400, {"message": "Entity does not support descriptions"})
+            ha_store.append(
+                {
+                    "uid": f"uid-{len(ha_store) + 1}",
+                    "summary": json["item"],
+                    "status": "needs_action",
+                }
+            )
+            return FakeResp(200, {})
+        raise AssertionError(f"Unexpected POST URL: {url}")
+
+    with (
+        patch("app.integrations.home_assistant.requests.get", fake_get),
+        patch("app.integrations.home_assistant.requests.post", fake_post),
+    ):
+        with app.app_context():
+            r1 = sync_low_inventory_to_ha()
+            assert r1["synced_count"] == 1
+            assert len(ha_store) == 1
+
+            r2 = sync_low_inventory_to_ha()
+            assert r2["synced_count"] == 0
+            assert r2["skipped_count"] == 1
+            assert db.session.get(Item, salt_id).task_id == "uid-1"
+
+        # Rename Salt -> Havssalt via HTTP
+        res_rename = client.post(
+            "/update_items",
+            data={
+                f"update_item_{salt_id}": str(salt_id),
+                f"name_{salt_id}": "Havssalt",
+                f"quantity_{salt_id}": "0",
+                f"alert_quantity_{salt_id}": "1",
+                f"unit_{salt_id}": str(unit_id),
+                f"version_{salt_id}": "1",
+            },
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert res_rename.status_code == 200
+
+        with app.app_context():
+            r3 = sync_low_inventory_to_ha()
+            assert r3["synced_count"] == 0
+            assert r3["skipped_count"] == 1
+            assert len(ha_store) == 1

@@ -125,11 +125,9 @@ def _find_matching_entry(
             if entry["inventera_id"] == item.id:
                 return entry
 
-    untagged_summaries = [
-        entry["summary"] for entry in existing_entries if entry["inventera_id"] is None
-    ]
-    if _is_item_present(clean_name, untagged_summaries):
-        return {"uid": "", "summary": clean_name.casefold(), "inventera_id": None}
+    for entry in existing_entries:
+        if entry["inventera_id"] is None and _is_item_present(clean_name, [entry["summary"]]):
+            return entry
     return None
 
 
@@ -185,16 +183,29 @@ def _execute_sync(
         )
 
         if client.add_todo_item(target_entity, task_title, description):
-            synced_updates[item.id] = {"added_to_task": utc_now()}
+            update_fields: dict[str, Any] = {"added_to_task": utc_now()}
+            new_uid = ""
+            if not client.supports_description(target_entity):
+                refreshed = _fetch_entries_for_entity(client, target_entity)
+                if refreshed is not None:
+                    existing_entries[:] = refreshed
+                    title_cf = task_title.casefold()
+                    for entry in reversed(refreshed):
+                        if entry["uid"] and entry["summary"] == title_cf:
+                            new_uid = entry["uid"]
+                            update_fields["task_id"] = new_uid
+                            break
+            synced_updates[item.id] = update_fields
             synced.append(clean_name)
-            existing_entries.append(
-                {
-                    "uid": "",
-                    "summary": task_title.casefold(),
-                    "description": description,
-                    "inventera_id": item.id,
-                }
-            )
+            if not new_uid:
+                existing_entries.append(
+                    {
+                        "uid": "",
+                        "summary": task_title.casefold(),
+                        "description": description,
+                        "inventera_id": item.id,
+                    }
+                )
         else:
             failed.append(clean_name)
             logger.error(f"Failed to add {clean_name} to {target_entity}")
