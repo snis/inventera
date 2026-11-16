@@ -94,6 +94,36 @@ def sync_low_inventory_to_ha() -> dict[str, Any]:
         return _execute_sync(client, low_items, store_map, default_entity, restocked_items)
 
 
+def sync_item_to_ha(item_id: int) -> None:
+    """Best-effort single-item sync to Home Assistant immediately after an item save."""
+    try:
+        client = HomeAssistantTodoClient()
+        if not client.is_configured():
+            return
+
+        with _sync_lock:
+            db.session.expire_all()
+            item = db.session.get(Item, item_id)
+            if not item or not item.is_visible:
+                return
+
+            store_map = get_store_todo_map()
+            default_entity = (Settings.get("ha_default_todo_entity", "") or "").strip()
+            if not default_entity and not store_map:
+                discovered = client.get_todo_entities()
+                if discovered:
+                    default_entity = discovered[0]["entity_id"]
+
+            qty = item.quantity if item.quantity is not None else 0
+            alert_qty = item.alert_quantity if item.alert_quantity is not None else 0
+            if qty <= alert_qty:
+                _execute_sync(client, [item], store_map, default_entity, [])
+            elif Settings.get("ha_remove_restocked_items", "false") == "true":
+                _execute_sync(client, [], store_map, default_entity, [item])
+    except Exception:
+        logger.exception(f"Best-effort HA sync failed for item {item_id}")
+
+
 def _fetch_entries_for_entity(
     client: HomeAssistantTodoClient, entity_id: str
 ) -> list[dict[str, Any]] | None:

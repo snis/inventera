@@ -50,6 +50,9 @@
                     <button type="button" id="test-ha-btn" class="btn btn-toggle-all">
                         <i class="fa fa-plug"></i> {{ t('settings.test_connection') }}
                     </button>
+                    <button type="button" id="sync-ha-btn" class="btn btn-primary">
+                        <i class="fa fa-refresh"></i> {{ t('shopping.sync_button') }}
+                    </button>
                     <span id="ha-test-status" style="font-weight: 600;">
                         {% if connected %}
                             <span style="color: var(--ha-green);"><i class="fa fa-check"></i> {{ conn_message }}</span>
@@ -313,6 +316,27 @@
                 }
                 row.remove();
                 syncNewOptions(field);
+            });
+
+            // Manual full sync to Home Assistant
+            $('#sync-ha-btn').click(function() {
+                const btn = $(this);
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + T.index.syncing);
+
+                $.ajax({
+                    type: 'POST',
+                    url: "{{ url_for('inventory.sync_ha') }}",
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> ' + T.shopping.sync_button);
+                        alert(response.message || T.index.sync_done);
+                    },
+                    error: function(err) {
+                        btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> ' + T.shopping.sync_button);
+                        console.error('Sync error:', err);
+                        alert(T.index.sync_error);
+                    }
+                });
             });
         });
     </script>

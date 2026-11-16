@@ -14,7 +14,7 @@ from app.models.settings import Settings
 from app.presentation.colors import get_row_color, get_warning_color
 from app.services.inventory import get_low_stock_by_store
 from app.services.options import get_managed_options
-from app.services.shopping_sync import sync_low_inventory_to_ha
+from app.services.shopping_sync import sync_item_to_ha, sync_low_inventory_to_ha
 from app.utils.i18n import t
 from app.utils.responses import create_response, is_ajax_request
 
@@ -200,6 +200,7 @@ def update_quantity():
             "button_class": "",
         }
         db.session.commit()
+        sync_item_to_ha(item_id)
 
         if is_ajax_request():
             return jsonify(response_payload)
@@ -305,8 +306,10 @@ def update_items():
                 _apply_item_update(item, item_id)
                 updated_item = item
 
+        added_item: Item | None = None
         if "add_item" in request.form:
-            db.session.add(_create_item_from_form())
+            added_item = _create_item_from_form()
+            db.session.add(added_item)
 
         response_payload: dict | None = None
         if updated_item and is_ajax_request():
@@ -321,6 +324,10 @@ def update_items():
             }
 
         db.session.commit()
+        if updated_item is not None:
+            sync_item_to_ha(updated_item.id)
+        if added_item is not None:
+            sync_item_to_ha(added_item.id)
 
         if response_payload is not None:
             return jsonify(response_payload)

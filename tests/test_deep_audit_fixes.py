@@ -1450,3 +1450,68 @@ def test_row_color_thresholds_three_stage_and_validation(app, client):
         assert get_row_color(now - timedelta(days=3)) == "var(--inv-orange)"
         assert get_row_color(now - timedelta(days=9)) == "var(--inv-orange)"
         assert get_row_color(now - timedelta(days=10)) == "var(--inv-red)"
+
+
+def test_auto_sync_on_quantity_save_and_sync_button_moved_to_settings(app, client):
+    with app.app_context():
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Kaffe", quantity=5, alert_quantity=2, unit="st", unit_id=u.id)
+        db.session.add(item)
+        Settings.set("ha_url", "http://ha.local:8123")
+        Settings.set("ha_token", "tok")
+        Settings.set("ha_default_todo_entity", "todo.shopping")
+        db.session.commit()
+        item_id = item.id
+
+    ha_store: list[dict[str, str]] = []
+
+    class FakeResp:
+        def __init__(self, status_code: int, payload: dict):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, headers=None, timeout=5):
+        if "/api/states/todo.shopping" in url:
+            return FakeResp(
+                200, {"entity_id": "todo.shopping", "attributes": {"supported_features": 79}}
+            )
+        return FakeResp(200, [])
+
+    def fake_post(url, headers=None, json=None, timeout=5):
+        if "todo/get_items" in url:
+            return FakeResp(200, {"service_response": {"todo.shopping": {"items": ha_store}}})
+        if "todo/add_item" in url:
+            ha_store.append(
+                {
+                    "uid": f"uid-{len(ha_store) + 1}",
+                    "summary": json["item"],
+                    "description": json.get("description", ""),
+                    "status": "needs_action",
+                }
+            )
+            return FakeResp(200, {})
+        raise AssertionError(f"Unexpected POST URL: {url}")
+
+    with (
+        patch("app.integrations.home_assistant.requests.get", fake_get),
+        patch("app.integrations.home_assistant.requests.post", fake_post),
+    ):
+        res = client.post(
+            "/update_quantity",
+            data={"item_id": str(item_id), "new_quantity": "1", "version": "1"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert res.status_code == 200
+        assert len(ha_store) == 1
+        assert ha_store[0]["summary"] == "Kaffe (1 st)"
+
+    index_html = client.get("/").get_data(as_text=True)
+    assert 'id="sync-ha-btn"' not in index_html
+
+    settings_html = client.get("/settings").get_data(as_text=True)
+    assert 'id="sync-ha-btn"' in settings_html

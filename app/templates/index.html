@@ -93,13 +93,6 @@
                 </div>
             {% endfor %}
         </div>
-
-        <!-- Bottom actions -->
-        <div class="action-buttons-bottom">
-            <button type="button" id="sync-ha-btn" class="btn btn-primary btn-large-sync">
-                <i class="fa fa-refresh"></i> {{ t('index.sync_button') }}
-            </button>
-        </div>
 {% endblock %}
 {% block scripts %}
     <script>
@@ -296,33 +289,6 @@
                     }
                 });
             }
-
-            // Sync to Home Assistant
-            $('#sync-ha-btn').click(function() {
-                const btn = $(this);
-                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + T.index.syncing);
-
-                $.ajax({
-                    type: 'POST',
-                    url: "{{ url_for('inventory.sync_ha') }}",
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    success: function(response) {
-                        btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> ' + T.index.sync_button);
-                        if (response.status === 'success') {
-                            alert(response.message || T.index.sync_done);
-                        } else {
-                            alert(response.message || T.index.sync_error);
-                        }
-                    },
-                    error: function(err) {
-                        btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> ' + T.index.sync_button);
-                        console.error('Sync error:', err);
-                        alert(T.index.sync_error);
-                    }
-                });
-            });
         });
     </script>
 {% endblock %}
