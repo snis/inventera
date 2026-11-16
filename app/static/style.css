@@ -233,6 +233,7 @@ button {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  vertical-align: middle;
   margin: 0 3px;
   padding: 6px 8px;
   min-width: 45px;
@@ -1332,8 +1333,8 @@ button:hover {
 button.toggle-visibility {
   width: 36px;
   height: 36px;
-  min-width: 36px;
-  border-radius: 8px;
+  min-width: 45px;
+  border-radius: 6px;
   border: none;
   background-color: var(--ha-grey, #757575);
   color: #ffffff;
@@ -1343,6 +1344,7 @@ button.toggle-visibility {
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  padding: 0;
   margin: 0 3px;
   transition: opacity 0.2s, background-color 0.2s;
 }
