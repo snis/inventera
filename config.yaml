@@ -1,5 +1,5 @@
 name: "Inventory"
-version: "2.5.0"
+version: "2.5.1"
 slug: "inventera"
 description: "Mobile-friendly inventory and shopping list manager integrated with Home Assistant To-do lists."
 url: "https://github.com/snis/inventera"
