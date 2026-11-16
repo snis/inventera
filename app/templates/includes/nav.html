@@ -1,9 +1,11 @@
 <div class="navigation-wrapper">
     <div class="navigation">
         <a href="{{ url_for('main.index') }}" class="{% if active_page == 'index' %}active{% endif %}">{{ t('nav.inventory') }}</a>
-        <a href="{{ url_for('inventory.shopping') }}" class="{% if active_page == 'shopping' %}active{% endif %}">{{ t('nav.shopping') }}</a>
-        <a href="{{ url_for('inventory.inventory') }}" class="{% if active_page == 'manage' %}active{% endif %}">{{ t('nav.manage_items') }}</a>
-        <a href="{{ url_for('settings.settings') }}" class="{% if active_page == 'settings' %}active{% endif %}">{{ t('nav.settings') }}</a>
+        {% if not is_direct_public %}
+            <a href="{{ url_for('inventory.shopping') }}" class="{% if active_page == 'shopping' %}active{% endif %}">{{ t('nav.shopping') }}</a>
+            <a href="{{ url_for('inventory.inventory') }}" class="{% if active_page == 'manage' %}active{% endif %}">{{ t('nav.manage_items') }}</a>
+            <a href="{{ url_for('settings.settings') }}" class="{% if active_page == 'settings' %}active{% endif %}">{{ t('nav.settings') }}</a>
+        {% endif %}
     </div>
     <div class="lang-switcher" title="{{ t('app.language') }}">
         <a href="{{ url_for('settings.set_language', lang='sv') }}" class="lang-pill {% if current_lang == 'sv' %}active{% endif %}">SV</a>

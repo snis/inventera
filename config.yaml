@@ -9,6 +9,10 @@ arch:
 init: false
 ingress: true
 ingress_port: 5000
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: "Direct web UI (public inventory page only)"
 panel_icon: "mdi:clipboard-list-outline"
 panel_title: "Inventory"
 homeassistant_api: true

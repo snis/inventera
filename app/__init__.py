@@ -7,14 +7,23 @@ import logging
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, jsonify, render_template, request
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.wrappers import Response
 
 from app.config import DEFAULT_INGRESS_PROXY, build_config
 from app.extensions import csrf, db, migrate
+from app.utils.responses import is_ajax_request
+
+PUBLIC_DIRECT_ENDPOINTS = frozenset(
+    {
+        "main.index",
+        "inventory.update_quantity",
+        "settings.set_language",
+        "static",
+    }
+)
 
 
 @event.listens_for(Engine, "connect")
@@ -47,20 +56,23 @@ class IngressMiddleware:
 
     def __call__(self, environ, start_response):
         remote_addr = (environ.get("REMOTE_ADDR") or "").strip()
-        if self.enforce_trusted_proxy and remote_addr not in self.trusted_proxies:
-            resp = Response("Forbidden: direct access disabled in Ingress mode", status=403)
-            return resp(environ, start_response)
+        is_trusted_ingress = not self.enforce_trusted_proxy or (remote_addr in self.trusted_proxies)
+        environ["inventera.is_ingress"] = is_trusted_ingress
 
-        ingress_path = (environ.get("HTTP_X_INGRESS_PATH") or "").strip()
-        if ingress_path:
-            normalized = "/" + ingress_path.strip("/")
-            if normalized != "/":
-                environ["SCRIPT_NAME"] = normalized
-                path_info = environ.get("PATH_INFO", "")
-                if path_info == normalized:
-                    environ["PATH_INFO"] = "/"
-                elif path_info.startswith(normalized + "/"):
-                    environ["PATH_INFO"] = path_info[len(normalized) :]
+        if is_trusted_ingress:
+            ingress_path = (environ.get("HTTP_X_INGRESS_PATH") or "").strip()
+            if ingress_path:
+                normalized = "/" + ingress_path.strip("/")
+                if normalized != "/":
+                    environ["SCRIPT_NAME"] = normalized
+                    path_info = environ.get("PATH_INFO", "")
+                    if path_info == normalized:
+                        environ["PATH_INFO"] = "/"
+                    elif path_info.startswith(normalized + "/"):
+                        environ["PATH_INFO"] = path_info[len(normalized) :]
+        else:
+            # Strip spoofed Ingress headers on untrusted direct requests
+            environ.pop("HTTP_X_INGRESS_PATH", None)
 
         return self.wsgi_app(environ, start_response)
 
@@ -102,9 +114,24 @@ def create_app(test_config=None):
     from app.models.settings import Settings
     from app.utils.i18n import SUPPORTED_LANGUAGES, get_locale, get_translations_dict, t
 
+    @app.before_request
+    def restrict_direct_access():
+        if app.config.get("ENFORCE_INGRESS_PROXY", False) and not request.environ.get(
+            "inventera.is_ingress", False
+        ):
+            if request.endpoint not in PUBLIC_DIRECT_ENDPOINTS:
+                msg = "Åtkomst nekad. Öppna via Home Assistant för att nå denna sida."
+                if is_ajax_request():
+                    return jsonify({"status": "error", "message": msg}), 403
+                return render_template("error.html", message=msg), 403
+        return None
+
     @app.context_processor
     def inject_globals():
         lang = get_locale()
+        is_direct_public = (app.config.get("ENFORCE_INGRESS_PROXY") is True) and (
+            request.environ.get("inventera.is_ingress") is not True
+        )
         try:
             calendar_url = Settings.get("calendar_url", os.environ.get("CALENDAR_URL", ""))
         except Exception:
@@ -115,6 +142,7 @@ def create_app(test_config=None):
             "supported_languages": SUPPORTED_LANGUAGES,
             "js_translations": get_translations_dict(lang),
             "calendar_url": calendar_url,
+            "is_direct_public": is_direct_public,
         }
 
     # Import models so Flask-Migrate / Alembic discovers all metadata

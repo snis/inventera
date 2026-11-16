@@ -6,7 +6,7 @@ import pytest
 
 from app import create_app
 from app.extensions import db
-from app.models.item import Item
+from app.models.item import Item, Unit
 from app.models.settings import Settings
 from app.services.shopping_sync import sync_low_inventory_to_ha
 
@@ -124,7 +124,7 @@ def test_ingress_prefix_rewrites_static_links_and_redirects(client):
     assert "/api/hassio_ingress/test-token/" in redir.headers["Location"]
 
 
-def test_addon_mode_blocks_untrusted_direct_access(monkeypatch):
+def test_addon_mode_allows_direct_index_and_blocks_admin_pages(monkeypatch):
     monkeypatch.setenv("SUPERVISOR_TOKEN", "test-supervisor-token")
     addon_app = create_app(
         {
@@ -135,17 +135,56 @@ def test_addon_mode_blocks_untrusted_direct_access(monkeypatch):
     )
     with addon_app.app_context():
         db.create_all()
+        u = Unit(name="st")
+        db.session.add(u)
+        db.session.flush()
+        item = Item(name="Salt", quantity=2, alert_quantity=1, unit="st", unit_id=u.id)
+        db.session.add(item)
+        db.session.commit()
+        item_id = item.id
     addon_client = addon_app.test_client()
 
-    blocked = addon_client.get("/", environ_base={"REMOTE_ADDR": "192.168.1.50"})
-    assert blocked.status_code == 403
+    # Direct access to main index and update_quantity is allowed, with admin nav links hidden
+    public_index = addon_client.get("/", environ_base={"REMOTE_ADDR": "192.168.1.50"})
+    assert public_index.status_code == 200
+    public_html = public_index.get_data(as_text=True)
+    assert "/shopping" not in public_html
+    assert "/inventory" not in public_html
+    assert '/settings"' not in public_html
 
-    allowed = addon_client.get(
-        "/",
-        environ_base={"REMOTE_ADDR": "172.30.32.2"},
-        headers={"X-Ingress-Path": "/api/hassio_ingress/abc"},
+    res_qty = addon_client.post(
+        "/update_quantity",
+        data={"item_id": str(item_id), "new_quantity": "3", "version": "1"},
+        environ_base={"REMOTE_ADDR": "192.168.1.50"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
     )
-    assert allowed.status_code == 200
+    assert res_qty.status_code == 200
+
+    # Admin pages and APIs are blocked on direct access, even with a spoofed X-Ingress-Path
+    for path in ("/shopping", "/inventory", "/settings", "/settings/backup"):
+        blocked = addon_client.get(
+            path,
+            environ_base={"REMOTE_ADDR": "192.168.1.50"},
+            headers={"X-Ingress-Path": "/api/hassio_ingress/spoof"},
+        )
+        assert blocked.status_code == 403
+
+    for post_path in ("/settings/save", "/sync_ha", f"/remove_item/{item_id}"):
+        blocked_post = addon_client.post(
+            post_path,
+            environ_base={"REMOTE_ADDR": "192.168.1.50"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert blocked_post.status_code == 403
+
+    # Trusted Ingress proxy (172.30.32.2) gets full access to all pages
+    for path in ("/", "/shopping", "/inventory", "/settings"):
+        allowed = addon_client.get(
+            path,
+            environ_base={"REMOTE_ADDR": "172.30.32.2"},
+            headers={"X-Ingress-Path": "/api/hassio_ingress/abc"},
+        )
+        assert allowed.status_code == 200
 
 
 def test_ha_sync_exact_matching_does_not_skip_salt_for_ortsalt(app, monkeypatch):
