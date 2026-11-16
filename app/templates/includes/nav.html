@@ -3,9 +3,6 @@
         <a href="{{ url_for('main.index') }}" class="{% if active_page == 'index' %}active{% endif %}">{{ t('nav.inventory') }}</a>
         <a href="{{ url_for('inventory.shopping') }}" class="{% if active_page == 'shopping' %}active{% endif %}">{{ t('nav.shopping') }}</a>
         <a href="{{ url_for('inventory.inventory') }}" class="{% if active_page == 'manage' %}active{% endif %}">{{ t('nav.manage_items') }}</a>
-        {% if calendar_url %}
-            <a href="{{ calendar_url }}">{{ t('nav.calendar') }}</a>
-        {% endif %}
         <a href="{{ url_for('settings.settings') }}" class="{% if active_page == 'settings' %}active{% endif %}">{{ t('nav.settings') }}</a>
     </div>
     <div class="lang-switcher" title="{{ t('app.language') }}">
